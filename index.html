@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>leakbridge scanner</title>
+  <title>leakbridge papers</title>
   <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
@@ -29,8 +29,7 @@
     }
 
     .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.6rem; letter-spacing: 2px; margin-bottom: 5px; font-weight: 400; }
-    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 5px; font-weight: 200; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
 
     #video-wrap {
       width: 100%;
@@ -79,16 +78,18 @@
       flex: 1;
       text-align: center;
       font-family: 'Outfit', sans-serif;
+      transition: 0.2s;
     }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
     .output-section { width: 100%; max-width: 340px; }
 
     .section-group {
       background: rgba(0, 77, 77, 0.4);
       padding: 15px;
-      border-radius: 9px;
+      border-radius: 12px;
       margin-bottom: 15px;
-      border: 3px solid #ffffff;
+      border-left: 4px solid #ffffff;
       position: relative;
     }
 
@@ -143,7 +144,6 @@
 
   <div class="header">
     <h1>CAMBRIGE IS GAY</h1>
-    <h2>crazy how ai works</h2>
   </div>
 
   <div id="video-wrap">
@@ -192,13 +192,17 @@
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
     function parseCode(text) {
+      // Clean text for regex processing
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
       let resText = "", urlPart = "";
       let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
+      // Pattern 1: Filename (9709_S25_QP_12)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // Pattern 2: Modern Slash (9709 1 2 M J 25)
       const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // Pattern 3: Legacy (9709 01 O N 05)
       const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
@@ -242,7 +246,7 @@
       try {
         const text = await navigator.clipboard.readText();
         if(text) parseCode(text);
-      } catch(e) { alert("Paste permission needed"); }
+      } catch(e) { alert("Enable clipboard permissions"); }
     }
 
     function toggleCopy() {

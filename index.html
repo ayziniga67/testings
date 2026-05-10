@@ -58,12 +58,10 @@
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
-      display: none;
     }
 
     .action-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
       gap: 8px;
       margin-bottom: 30px;
       width: 100%;
@@ -76,15 +74,15 @@
       border: 1.5px solid #ffffff;
       padding: 12px 0;
       border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: 300;
+      font-size: 0.9rem;
+      font-weight:300;
       cursor: pointer;
+      flex: 1;
       text-align: center;
       font-family: 'Outfit', sans-serif;
       transition: 0.2s;
     }
     .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
-    .btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .output-section { width: 100%; max-width: 340px; }
 
@@ -108,6 +106,7 @@
     }
 
     .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; }
+
     #result-text { font-size: 1.1rem; font-weight: 600; display: block; line-height: 1.3; }
 
     .pdf-btn {
@@ -157,11 +156,10 @@
   </div>
 
   <div class="action-row">
-    <button class="btn-action" id="cam-btn" onclick="toggleCamera()">Open Camera</button>
-    <button class="btn-action" id="main-btn" onclick="scan()">Scan Now</button>
-    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload Image</label>
+    <button class="btn-action" id="main-btn" onclick="handleFlow()">Scan</button>
+    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload</label>
     <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
-    <button class="btn-action" onclick="handleManualPaste()">Paste Code</button>
+    <button class="btn-action" onclick="handleManualPaste()">Paste</button>
   </div>
 
   <div class="output-section">
@@ -191,67 +189,48 @@
     const subjectEl = document.getElementById('subject-display');
     const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
-    const camBtn = document.getElementById('cam-btn');
-    const aimBox = document.getElementById('aim-box');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
     
-    let stream = null, worker = null, isCameraOn = false, currentMode = 'none', autoCopy = false;
-
-    async function initWorker() {
-      if (worker) return;
-      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
-      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
-    }
-
-    async function toggleCamera() {
-      if (isCameraOn) {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = 'none';
-        aimBox.style.display = 'none';
-        camBtn.textContent = "Open Camera";
-        isCameraOn = false;
-        currentMode = (uploadedImg.style.display === 'block') ? 'image' : 'none';
-      } else {
-        await initWorker();
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-          video.srcObject = stream;
-          video.style.display = 'block';
-          uploadedImg.style.display = 'none';
-          aimBox.style.display = 'block';
-          camBtn.textContent = "Close Camera";
-          isCameraOn = true;
-          currentMode = 'camera';
-        } catch(e) { alert("Camera Access Denied"); }
-      }
-    }
+    let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
     function parseCode(text) {
+      // Clean text for regex processing
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
+      
       let resText = "", urlPart = "";
       let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
+      // Pattern 1: Filename (9709_S25_QP_12)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // Pattern 2: Modern Slash (9709 1 2 M J 25)
       const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJONW])\s*([MFJONW])?\s*(?:20)?(\d{2})/);
+      // Pattern 3: Legacy (9709 01 O N 05)
       const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJONW])\s*([MFJONW])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
-        sub = mUnder[1] || "9709"; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+        sub = mUnder[1] || "9709"; 
+        seas = mUnder[2].toLowerCase(); 
+        yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
       } 
       else if (mSlash || mLegacy) {
         const match = mSlash || mLegacy;
-        sub = match[1] || "9709"; pap = match[2];
+        sub = match[1] || "9709";
+        pap = match[2];
+        
         const fullBlock = clean; 
-        if (fullBlock.includes("M J") || fullBlock.includes("MJ") || fullBlock.includes(" S ")) seas = "s";
-        else if (fullBlock.includes("O N") || fullBlock.includes("ON") || fullBlock.includes(" W ")) seas = "w";
-        else if (fullBlock.includes("F M") || fullBlock.includes("FM") || fullBlock.includes(" M ")) seas = "m";
-        else {
+        if (fullBlock.includes("M J") || fullBlock.includes("MJ") || fullBlock.includes(" S ")) {
+            seas = "s";
+        } else if (fullBlock.includes("O N") || fullBlock.includes("ON") || fullBlock.includes(" W ")) {
+            seas = "w";
+        } else if (fullBlock.includes("F M") || fullBlock.includes("FM") || fullBlock.includes(" M ")) {
+            seas = "m";
+        } else {
             let s = match[4];
             seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
         }
-        varnt = match[3] || "1"; yr = match[6] || match[5];
+        varnt = match[3] || "1";
+        yr = match[6] || match[5];
       }
 
       if (seas && pap) {
@@ -259,6 +238,7 @@
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         resText = `${typeName} Paper ${pap}${varnt !== "1" ? " Variant " + varnt : ""} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+        
         subjectEl.textContent = `Subject: ${sub}`;
         resultEl.textContent = resText;
         pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
@@ -267,45 +247,7 @@
       } else {
         resultEl.textContent = "No valid code found";
         pdfLink.style.display = 'none';
-      }
-    }
-
-    async function scan() {
-      if (currentMode === 'none') { alert("Please open camera or upload image first"); return; }
-      await initWorker();
-      mainBtn.disabled = true;
-      mainBtn.textContent = "Scanning...";
-      
-      const source = currentMode === 'image' ? uploadedImg : video;
-      const w = source.naturalWidth || source.videoWidth;
-      const h = source.naturalHeight || source.videoHeight;
-      const scale = Math.min(1, 800 / w); 
-      
-      canvas.width = w * scale;
-      canvas.height = h * scale;
-      
-      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
-      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-      
-      worker.recognize(canvas).then(({ data: { text } }) => {
-        parseCode(text);
-        mainBtn.disabled = false;
-        mainBtn.textContent = "Scan Now";
-        bar.style.width = '0%';
-      });
-    }
-
-    function handleFileUpload(event) {
-      if (event.target.files[0]) {
-        const url = URL.createObjectURL(event.target.files[0]);
-        uploadedImg.src = url;
-        uploadedImg.onload = () => {
-          if (isCameraOn) toggleCamera();
-          video.style.display = 'none';
-          uploadedImg.style.display = 'block';
-          currentMode = 'image';
-          resultEl.textContent = "Image loaded. Ready to scan.";
-        }
+        subjectEl.textContent = "Subject: ----";
       }
     }
 
@@ -320,6 +262,60 @@
       autoCopy = !autoCopy;
       copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
       copyToggle.classList.toggle('off', !autoCopy);
+    }
+
+    function handleFileUpload(event) {
+      if (event.target.files[0]) {
+        const url = URL.createObjectURL(event.target.files[0]);
+        uploadedImg.src = url;
+        uploadedImg.onload = () => {
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          isCameraOn = false; video.style.display = 'none'; uploadedImg.style.display = 'block';
+          currentMode = 'image'; mainBtn.textContent = "Scan Image";
+        }
+      }
+    }
+
+    async function handleFlow() {
+      if (currentMode === 'camera' && !isCameraOn) {
+        await initWorker();
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+          video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
+          isCameraOn = true; mainBtn.textContent = "Scan Now";
+        } catch(e) { alert("Camera Error"); }
+      } else { scan(); }
+    }
+
+    async function initWorker() {
+      if (worker) return;
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      
+      // FIX: Added F, J, O, N to the whitelist so the engine can actually "see" the sessions
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
+    }
+
+    function scan() {
+      mainBtn.disabled = true;
+      const source = currentMode === 'image' ? uploadedImg : video;
+      
+      // SPEED FIX: Downscale the image before running OCR
+      const w = source.naturalWidth || source.videoWidth;
+      const h = source.naturalHeight || source.videoHeight;
+      const scale = Math.min(1, 800 / w); // Caps width at 800px max
+      
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      
+      worker.recognize(canvas).then(({ data: { text } }) => {
+        parseCode(text);
+        mainBtn.disabled = false;
+        bar.style.width = '0%';
+      });
     }
   </script>
 </body>

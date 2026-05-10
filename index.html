@@ -25,23 +25,16 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 50px 20px;
+      padding: 30px 20px;
     }
 
-    .header { text-align: center; margin-bottom: 30px; }
-    .header h1 {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 2.2rem;
-      font-weight: 400;
-      letter-spacing: 2px;
-      margin-bottom: 5px;
-    }
-    .header p { font-size: 0.9rem; opacity: 0.8; font-weight: 300; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
 
     #video-wrap {
       width: 100%;
       max-width: 340px;
-      height: 240px;
+      height: 200px;
       background: var(--card-bg);
       border-radius: 15px;
       position: relative;
@@ -49,17 +42,16 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
     }
 
     video { width: 100%; height: 100%; object-fit: cover; display: none; }
-    
-    #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; background: #0b1926; }
+    #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; }
 
     #aim-box {
       position: absolute;
       width: 80%;
-      height: 55px;
+      height: 50px;
       border: 2px solid #ffffff;
       border-radius: 10px;
       pointer-events: none;
@@ -69,78 +61,69 @@
     .action-row {
       display: flex;
       gap: 10px;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
       width: 100%;
       max-width: 340px;
-      justify-content: space-between;
     }
 
     .btn-action {
       background: transparent;
       color: white;
       border: 1.5px solid #ffffff;
-      padding: 10px 0;
+      padding: 12px 0;
       border-radius: 10px;
       font-size: 1rem;
-      font-family: 'Outfit', sans-serif;
       cursor: pointer;
-      transition: all 0.2s;
       flex: 1;
       text-align: center;
-    }
-    
-    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
-    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .output-section { width: 100%; max-width: 340px; position: relative; }
-
-    .output-section h2 {
-      font-family: 'Montserrat', sans-serif;
-      font-size: 1.8rem;
-      margin-bottom: 10px;
-    }
-
-    .output-box {
-      width: 100%;
-      background: linear-gradient(90deg, #004d4d 0%, #1a2a3a 100%);
-      padding: 15px;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      color: #ffffff;
-      min-height: 50px;
-      display: flex;
-      align-items: center;
-      box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
-    }
-
-    .copy-status-row {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 10px;
-    }
-
-    .toggle-btn {
-      background: transparent;
-      border: 1px solid #ffffff;
-      color: white;
-      padding: 5px 12px;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      cursor: pointer;
       font-family: 'Outfit', sans-serif;
-      transition: opacity 0.3s;
     }
 
-    .toggle-btn.off { opacity: 0.4; border-color: rgba(255,255,255,0.5); }
+    .output-section { width: 100%; max-width: 340px; }
 
-    .progress-container {
-      width: 100%;
-      height: 2px;
-      background: var(--progress-bg);
-      margin-top: 10px;
+    .section-group {
+      background: rgba(0, 77, 77, 0.4);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border-left: 4px solid #ffffff;
     }
-    #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.1s; }
-    .progress-label { font-size: 0.7rem; margin-top: 5px; opacity: 0.7; }
+
+    .section-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.7;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .subject-sub {
+      font-size: 0.8rem;
+      opacity: 0.6;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    #result-text { font-size: 1.2rem; font-weight: 600; display: block; }
+
+    .pdf-btn {
+      display: none;
+      background: #ffffff;
+      color: #004d4d;
+      padding: 12px;
+      text-align: center;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      margin-top: 5px;
+      transition: transform 0.2s;
+    }
+    .pdf-btn:active { transform: scale(0.98); }
+
+    .progress-container { width: 100%; height: 3px; background: var(--progress-bg); margin-top: 10px; }
+    #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
 
     canvas { display: none; }
   </style>
@@ -149,33 +132,32 @@
 
   <div class="header">
     <h1>CAMBRIGE IS GAY</h1>
-    <p>idk man how i created ts it happened</p>
   </div>
 
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
-    <img id="uploaded-img" alt="Uploaded paper code preview">
+    <img id="uploaded-img">
     <div id="aim-box"></div>
-    <div id="loading-msg">Camera Off</div>
   </div>
 
   <div class="action-row">
-    <button class="btn-action" id="main-btn" onclick="handleFlow()">scan</button>
-    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">upload</label>
-    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
-    <button class="btn-action" onclick="handleManualPaste()">paste</button>
+    <button class="btn-action" id="main-btn" onclick="handleFlow()">Scan</button>
+    <button class="btn-action" onclick="handleManualPaste()">Paste</button>
   </div>
 
   <div class="output-section">
-    <h2>Output</h2>
-    <div class="output-box" id="result-text">output here</div>
-    
-    <div class="copy-status-row">
-      <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">auto copy off</button>
+    <div class="section-group">
+      <span class="section-title">For Rove</span>
+      <span class="subject-sub" id="subject-display">Subject: ----</span>
+      <span id="result-text">Output here</span>
+    </div>
+
+    <div class="section-group">
+      <span class="section-title">For Papa Cambridge</span>
+      <a id="pdf-link" class="pdf-btn" target="_blank">OPEN PDF</a>
     </div>
 
     <div class="progress-container"><div id="bar"></div></div>
-    <p class="progress-label">progress bar</p>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -186,177 +168,92 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const resultEl = document.getElementById('result-text');
+    const subjectEl = document.getElementById('subject-display');
+    const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
     const bar = document.getElementById('bar');
-    const copyToggle = document.getElementById('copy-toggle');
-    const aimBox = document.getElementById('aim-box');
     
-    let stream = null;
-    let worker = null;
-    let isCameraOn = false;
-    let currentMode = 'camera'; 
-    let autoCopy = false;
+    let stream = null, worker = null, isCameraOn = false, currentMode = 'camera';
 
     function parseCode(text) {
-      const clean = text.toUpperCase().trim();
+      const clean = text.toUpperCase().trim().replace(/[^A-Z0-9_]/g, ' ');
       
-      // Pattern 1: Modern format (9709/52/F/M/20)
-      const mNew = clean.match(/(\d{4})\s*(\d)\s*(\d)\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
-      
-      // Pattern 2: Legacy format (9709/01/O/N/04)
-      const mOld = clean.match(/(\d{4})\s*0(\d)\s*([MFJON0](?:\s*[MFJON0]){0,3})\s*(?:20)?(\d{2})/);
-      
-      // Pattern 3: Filename format (m25_qp_12) - SeasonYear_Type_PaperVariant
-      // Group 1: M/S/W | Group 2: Year | Group 3: qp/ms | Group 4: Paper | Group 5: Variant
-      const mFile = clean.match(/([MSW])(\d{2})_(?:QP|MS)_(\d)(\d)/);
+      let resText = "";
+      let urlPart = "";
+      let sub = "", pap = "", varnt = "", seas = "", yr = "", type = "ms"; // Defaulting to MS
 
-      let res = "";
+      const mSlash = clean.match(/(\d{4})\s*(\d)\s*(\d)\s*([MFJON])\s*(\d{2})/);
+      const mLegacy = clean.match(/(\d{4})\s*0(\d)\s*([MFJON])\s*(\d{2})/);
+      const mUnder = clean.match(/(\d{4})_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
 
-      if (mNew) {
-        let s = mNew[4].replace(/\s+/g, '');
-        let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
-        res = `Paper ${mNew[2]} Variant ${mNew[3]} ${sName} 20${mNew[5]}`;
+      if (mSlash) {
+        sub = mSlash[1]; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[5];
+        let s = mSlash[4];
+        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        resText = `Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`; // Inserted MS automatically
       } 
-      else if (mOld) {
-        let s = mOld[3].replace(/\s+/g, '');
-        let sName = s.includes('J') ? "Summer" : ((s.includes('O') || s.includes('N') || s.includes('0')) ? "Winter" : "March");
-        res = `Paper ${mOld[2]} ${sName} 20${mOld[4]}`;
+      else if (mLegacy) {
+        sub = mLegacy[1]; pap = mLegacy[2]; yr = mLegacy[4];
+        let s = mLegacy[3];
+        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        resText = `Paper ${pap} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`; // Inserted MS automatically
       }
-      else if (mFile) {
-        let sLetter = mFile[1];
-        let sName = sLetter === 'M' ? "March" : (sLetter === 'S' ? "Summer" : "Winter");
-        res = `Paper ${mFile[3]} Variant ${mFile[4]} ${sName} 20${mFile[2]}`;
+      else if (mUnder) {
+        sub = mUnder[1]; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        resText = `Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
       }
-      
-      if (res) {
-        resultEl.textContent = res;
-        if(autoCopy) {
-          navigator.clipboard.writeText(res).then(() => {
-              const originalText = copyToggle.textContent;
-              copyToggle.textContent = 'COPIED!';
-              setTimeout(() => { copyToggle.textContent = originalText; }, 1000);
-          });
-        }
+
+      if (resText) {
+        subjectEl.textContent = `Subject: ${sub}`;
+        resultEl.textContent = resText;
+        pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
+        pdfLink.style.display = 'block';
+        
+        // Auto-copy only the Rove-friendly text
+        navigator.clipboard.writeText(resText);
       } else {
         resultEl.textContent = "No valid code found";
+        pdfLink.style.display = 'none';
+        subjectEl.textContent = "Subject: ----";
       }
     }
-
-    window.addEventListener('paste', e => {
-      const clipboardData = e.clipboardData || window.clipboardData;
-      const pastedText = clipboardData.getData('Text');
-      if (pastedText && pastedText.trim() !== '') {
-        parseCode(pastedText);
-        return; 
-      }
-      const items = clipboardData.items;
-      for (let index in items) {
-        if (items[index].kind === 'file') {
-          processImageFile(items[index].getAsFile());
-          return;
-        }
-      }
-    });
 
     async function handleManualPaste() {
       try {
-        const clipboardItems = await navigator.clipboard.read();
-        for (const item of clipboardItems) {
-          if (item.types.includes('text/plain')) {
-            const blob = await item.getType('text/plain');
-            const text = await blob.text();
-            if (text.trim()) {
-              parseCode(text);
-              return; 
-            }
-          }
-          const imageTypes = item.types.filter(type => type.startsWith('image/'));
-          for (const type of imageTypes) {
-            const blob = await item.getType(type);
-            processImageFile(blob);
-            return; 
-          }
-        }
-      } catch (err) {
-        try {
-           const fallbackText = await navigator.clipboard.readText();
-           if(fallbackText.trim()) parseCode(fallbackText);
-        } catch(e) { alert("Paste failed - check permissions"); }
-      }
-    }
-
-    function toggleCopy() {
-      autoCopy = !autoCopy;
-      copyToggle.textContent = autoCopy ? 'auto copy on' : 'auto copy off';
-      copyToggle.classList.toggle('off', !autoCopy);
-    }
-
-    function handleFileUpload(event) {
-      if (event.target.files[0]) processImageFile(event.target.files[0]);
-    }
-
-    function processImageFile(blob) {
-      const url = URL.createObjectURL(blob);
-      uploadedImg.src = url;
-      uploadedImg.onload = () => {
-        if (stream) { stream.getTracks().forEach(t => t.stop()); isCameraOn = false; }
-        video.style.display = 'none';
-        uploadedImg.style.display = 'block';
-        document.getElementById('loading-msg').style.display = 'none';
-        aimBox.style.display = 'none'; 
-        currentMode = 'image';
-        mainBtn.textContent = "scan image";
-      }
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Paste blocked. Grant permissions."); }
     }
 
     async function handleFlow() {
       if (currentMode === 'camera' && !isCameraOn) {
-        mainBtn.textContent = "starting...";
         await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: { ideal: 1280 } } 
-          });
-          video.srcObject = stream;
-          video.style.display = 'block';
-          uploadedImg.style.display = 'none';
-          document.getElementById('loading-msg').style.display = 'none';
-          aimBox.style.display = 'block';
-          isCameraOn = true;
-          mainBtn.textContent = "scan";
-        } catch (e) { alert("Camera error"); mainBtn.textContent = "scan"; }
-      } else {
-        await initWorker(); 
-        scan();
-      }
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          video.srcObject = stream; video.style.display = 'block'; isCameraOn = true;
+          mainBtn.textContent = "Scan Now";
+        } catch(e) { alert("Camera error"); }
+      } else { scan(); }
     }
 
     async function initWorker() {
       if (worker) return;
-      worker = Tesseract.createWorker({
-        logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; }
-      });
-      await worker.load();
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MFJONmsqp_ /\\-.,;:_[]{}\|' });
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
     }
 
     function scan() {
-      mainBtn.disabled = true;
-      if (currentMode === 'image') {
-        canvas.width = uploadedImg.naturalWidth;
-        canvas.height = uploadedImg.naturalHeight;
-      } else {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      }
-      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)';
-      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
-      
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.filter = 'grayscale(100%) contrast(200%) brightness(110%)';
+      ctx.drawImage(video, 0, 0);
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
-        mainBtn.disabled = false;
         bar.style.width = '0%';
       });
     }

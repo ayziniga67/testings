@@ -255,14 +255,25 @@
       let detectedSub = "";
       if (mUnder) detectedSub = mUnder[1];
       else if (mSlash) detectedSub = mSlash[1];
-      else if (mLegacy) detectedSub = mLegacy[1];
+      else if (mSlash || mLegacy) {
+        const match = mSlash || mLegacy;
+        pap = match[2];
 
-      let sub = manualSub || detectedSub || "9709"; 
+        const compact = clean.replace(/\s+/g, '');
 
-      if (mUnder) {
-        seas = mUnder[2].toLowerCase(); 
-        yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
-      } 
+        if (/FM|MF/.test(compact)) seas = "m";      // March
+        else if (/MJ|JM/.test(compact)) seas = "s"; // Summer
+        else if (/ON|NO/.test(compact)) seas = "w"; // Winter
+        else {
+          const s = (match[4] || "").toUpperCase();
+          if (s === "M" || s === "F") seas = "m";
+          else if (s === "J" || s === "S") seas = "s";
+          else if (s === "O" || s === "N" || s === "W") seas = "w";
+        }
+
+        varnt = match[3] || "1";
+        yr = match[6] || match[5];
+      }
       else if (mSlash || mLegacy) {
         const match = mSlash || mLegacy;
         pap = match[2];

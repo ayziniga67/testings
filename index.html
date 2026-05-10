@@ -261,7 +261,7 @@
       if (mUnder) {
         sub = mUnder[1] || "9709"; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
         let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
-        let sName = (seas === 'm') ? "March" : (seas === 's' ) ? "Summer" :(seas === 'w')  "Winter";
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         resText = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
       } 

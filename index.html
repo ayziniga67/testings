@@ -232,8 +232,10 @@
       }
     }
 
-    function parseCode(text) {
+        function parseCode(text) {
+      // 1. Grab the manual input first
       const manualSub = document.getElementById('manual-sub').value.trim();
+      
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
       let resText = "", urlPart = "";
@@ -248,6 +250,7 @@
       else if (mSlash) detectedSub = mSlash[1];
       else if (mLegacy) detectedSub = mLegacy[1];
 
+      // This ensures the Manual Input is the boss
       let sub = manualSub || detectedSub || "9709"; 
 
       if (mUnder) {
@@ -272,6 +275,8 @@
         let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         resText = `${typeName} Paper ${pap}${varnt !== "1" ? " Variant " + varnt : ""} ${sName} 20${yr}`;
+        
+        // TWEAK: Using the 'sub' variable here ensures the Link and Rove section both update
         urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
         
         subjectEl.textContent = `Subject: ${sub}`;

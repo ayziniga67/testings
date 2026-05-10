@@ -43,7 +43,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
       border: 1px solid rgba(255,255,255,0.1);
     }
 
@@ -58,44 +58,12 @@
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
-      display: none;
-    }
-
-    .internal-cam-btn {
-      position: absolute;
-      bottom: 15px;
-      z-index: 10;
-      background: rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 0.7rem;
-      cursor: pointer;
-    }
-
-    .manual-subject-wrap {
-      width: 100%;
-      max-width: 340px;
-      margin-bottom: 15px;
-    }
-    #manual-sub-input {
-      width: 100%;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 12px;
-      border-radius: 6px;
-      color: white;
-      font-family: 'Outfit', sans-serif;
-      text-align: center;
-      outline: none;
     }
 
     .action-row {
       display: flex;
       gap: 8px;
-      margin-bottom: 20px;
+      margin-bottom: 30px;
       width: 100%;
       max-width: 340px;
     }
@@ -107,11 +75,14 @@
       padding: 12px 0;
       border-radius: 6px;
       font-size: 0.9rem;
+      font-weight:300
       cursor: pointer;
       flex: 1;
       text-align: center;
+      font-family: 'Outfit', sans-serif;
       transition: 0.2s;
     }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
     .output-section { width: 100%; max-width: 340px; }
 
@@ -120,7 +91,7 @@
       padding: 15px;
       border-radius: 12px;
       margin-bottom: 15px;
-      border: 1px solid #ffffff;
+      border: 3px solid #ffffff;
       position: relative;
     }
 
@@ -128,12 +99,14 @@
       font-family: 'Montserrat', sans-serif;
       font-size: 0.75rem;
       text-transform: uppercase;
+      letter-spacing: 1px;
       opacity: 0.6;
       margin-bottom: 10px;
       display: block;
     }
 
     .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; }
+
     #result-text { font-size: 1.1rem; font-weight: 600; display: block; line-height: 1.3; }
 
     .pdf-btn {
@@ -162,8 +135,10 @@
       top: 12px;
     }
     .toggle-btn.off { opacity: 0.4; }
+
     .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; }
     #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
+
     canvas { display: none; }
   </style>
 </head>
@@ -178,11 +153,6 @@
     <video id="video" autoplay playsinline muted></video>
     <img id="uploaded-img">
     <div id="aim-box"></div>
-    <button id="cam-toggle-btn" class="internal-cam-btn" onclick="toggleCamera()">Open Camera</button>
-  </div>
-
-  <div class="manual-subject-wrap">
-    <input type="text" id="manual-sub-input" placeholder="Subject Code (Enter to Apply)" onkeypress="if(event.key==='Enter') handleFlow()">
   </div>
 
   <div class="action-row">
@@ -219,116 +189,67 @@
     const subjectEl = document.getElementById('subject-display');
     const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
-    const camToggleBtn = document.getElementById('cam-toggle-btn');
-    const aimBox = document.getElementById('aim-box');
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
-    const manualSubInput = document.getElementById('manual-sub-input');
     
     let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
-    async function initWorker() {
-      if (worker) return;
-      resultEl.textContent = "Loading Engine...";
-      worker = Tesseract.createWorker({ 
-        logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } 
-      });
-      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
-    }
-
-    async function toggleCamera() {
-      if (isCameraOn) {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = 'none'; aimBox.style.display = 'none';
-        camToggleBtn.textContent = "Open Camera"; isCameraOn = false;
-      } else {
-        await initWorker();
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-          video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
-          aimBox.style.display = 'block'; camToggleBtn.textContent = "Close Camera";
-          isCameraOn = true; currentMode = 'camera';
-        } catch (e) { alert("Camera failed"); }
-      }
-    }
-
-    function getSession(char) {
-      if (!char) return { code: 's', name: 'Summer' };
-      const c = char.toUpperCase();
-      if (c === 'F' || c === 'M') return { code: 'm', name: 'March' };
-      if (c === 'J' || c === 'S') return { code: 's', name: 'Summer' };
-      if (c === 'O' || c === 'N' || c === 'W') return { code: 'w', name: 'Winter' };
-      return { code: 's', name: 'Summer' };
-    }
-
     function parseCode(text) {
-      const clean = text.replace(/\n/g, ' ').toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
+      // Clean text for regex processing
+      const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
-      let manualSub = manualSubInput.value.trim();
-      let sub = manualSub || (clean.match(/\d{4}/) ? clean.match(/\d{4}/)[0] : "9709");
-      let pap = "", varnt = "", seas = "s", yr = "24", type = "ms";
+      let resText = "", urlPart = "";
+      let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
-      // Pattern 1: Underscore (e.g. 9709_S24_MS_12)
-      const mUnder = clean.match(/([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      // Pattern 2: Slash (e.g. 1 2 M J 24)
-      const mSlash = clean.match(/([1-8])\s*([1-6])\s*([MJONF])\s*([MJONF])?\s*(\d{2})/);
+      // Pattern 1: Filename (9709_S25_QP_12)
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // Pattern 2: Modern Slash (9709 1 2 M J 25)
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // Pattern 3: Legacy (9709 01 O N 05)
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
-        const sess = getSession(mUnder[1]);
-        seas = sess.code; yr = mUnder[2]; type = mUnder[3].toLowerCase(); pap = mUnder[4]; varnt = mUnder[5];
-      } else if (mSlash) {
-        pap = mSlash[1]; varnt = mSlash[2];
-        const sess = getSession(mSlash[3]);
-        seas = sess.code; yr = mSlash[5]; type = "ms";
+        sub = mUnder[1] || "9709"; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+        let typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        resText = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+      } 
+      else if (mSlash) {
+        sub = mSlash[1] || "9709"; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
+        let s = mSlash[4];
+        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
+      }
+      else if (mLegacy) {
+        sub = mLegacy[1] || "9709"; pap = mLegacy[2]; yr = mLegacy[5];
+        let s = mLegacy[3];
+        seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
+        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        resText = `Mark Scheme Paper ${pap} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
       }
 
-      if (pap) {
-        const typeName = (type === 'qp') ? "Question Paper" : "Mark Scheme";
-        const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        
-        // Restore exact "For Rove" output format
-        const finalOutput = `${typeName} Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
-        
-        resultEl.textContent = finalOutput;
+      if (resText) {
         subjectEl.textContent = `Subject: ${sub}`;
-        
-        // Use the force: Manual subject overrides EVERYTHING for the URL
-        pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_${type}_${pap}${varnt}.pdf`;
+        resultEl.textContent = resText;
+        pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
         pdfLink.style.display = 'block';
-        
-        if(autoCopy) navigator.clipboard.writeText(finalOutput);
+        if(autoCopy) navigator.clipboard.writeText(resText);
       } else {
-        resultEl.textContent = "Adjust position and try again";
+        resultEl.textContent = "No valid code found";
+        pdfLink.style.display = 'none';
+        subjectEl.textContent = "Subject: ----";
       }
     }
 
-    async function handleFlow() {
-      if (currentMode === 'camera' && !isCameraOn) { alert("Open Camera First"); return; }
-      await initWorker();
-      const source = currentMode === 'image' ? uploadedImg : video;
-      canvas.width = source.videoWidth || source.naturalWidth;
-      canvas.height = source.videoHeight || source.naturalHeight;
-      ctx.filter = 'grayscale(100%) contrast(200%) brightness(110%)';
-      ctx.drawImage(source, 0, 0);
-      mainBtn.disabled = true;
-      worker.recognize(canvas).then(({ data: { text } }) => {
-        parseCode(text);
-        mainBtn.disabled = false;
-        bar.style.width = '0%';
-      });
-    }
-
-    async function handleFileUpload(event) {
-      if (event.target.files[0]) {
-        uploadedImg.src = URL.createObjectURL(event.target.files[0]);
-        uploadedImg.onload = async () => {
-          await initWorker();
-          if (isCameraOn) toggleCamera();
-          uploadedImg.style.display = 'block'; video.style.display = 'none';
-          currentMode = 'image';
-        }
-      }
+    async function handleManualPaste() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Enable clipboard permissions"); }
     }
 
     function toggleCopy() {
@@ -337,11 +258,50 @@
       copyToggle.classList.toggle('off', !autoCopy);
     }
 
-    async function handleManualPaste() {
-      try {
-        const text = await navigator.clipboard.readText();
-        if(text) parseCode(text);
-      } catch(e) { alert("Paste blocked"); }
+    function handleFileUpload(event) {
+      if (event.target.files[0]) {
+        const url = URL.createObjectURL(event.target.files[0]);
+        uploadedImg.src = url;
+        uploadedImg.onload = () => {
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          isCameraOn = false; video.style.display = 'none'; uploadedImg.style.display = 'block';
+          currentMode = 'image'; mainBtn.textContent = "Scan Image";
+        }
+      }
+    }
+
+    async function handleFlow() {
+      if (currentMode === 'camera' && !isCameraOn) {
+        await initWorker();
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+          video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
+          isCameraOn = true; mainBtn.textContent = "Scan Now";
+        } catch(e) { alert("Camera Error"); }
+      } else { scan(); }
+    }
+
+    async function initWorker() {
+      if (worker) return;
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
+    }
+
+    function scan() {
+      mainBtn.disabled = true;
+      if (currentMode === 'image') {
+        canvas.width = uploadedImg.naturalWidth; canvas.height = uploadedImg.naturalHeight;
+      } else {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      }
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
+      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
+      worker.recognize(canvas).then(({ data: { text } }) => {
+        parseCode(text);
+        mainBtn.disabled = false;
+        bar.style.width = '0%';
+      });
     }
   </script>
 </body>

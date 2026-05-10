@@ -64,7 +64,6 @@
       cursor: pointer;
     }
 
-    /* Input Styling */
     .manual-subject-wrap {
       width: 100%;
       max-width: 340px;
@@ -74,12 +73,14 @@
       width: 100%;
       background: rgba(255,255,255,0.1);
       border: 1px solid rgba(255,255,255,0.3);
-      padding: 10px;
+      padding: 12px;
       border-radius: 6px;
       color: white;
       font-family: 'Outfit', sans-serif;
       text-align: center;
+      outline: none;
     }
+    #manual-sub-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.15); }
 
     .action-row {
       display: flex;
@@ -169,7 +170,7 @@
   </div>
 
   <div class="manual-subject-wrap">
-    <input type="text" id="manual-sub-input" placeholder="Optional: Manual Subject Code (e.g. 0580)">
+    <input type="text" id="manual-sub-input" placeholder="Subject Code (Enter to Apply)" onkeypress="if(event.key==='Enter') handleFlow()">
   </div>
 
   <div class="action-row">
@@ -241,17 +242,16 @@
       const clean = text.replace(/\n/g, ' ').toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       let resText = "", urlPart = "";
       
-      // Default to Manual input if provided, otherwise check scan, otherwise default 9709
       let manualSub = manualSubInput.value.trim();
       let sub = manualSub || "9709"; 
       let pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
-      // Regex 1: Underscore (e.g. 9709_S24_MS_12)
+      // Pattern 1: Underscore (Improved)
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      // Regex 2: Slash Style (e.g. 9709 1 2 M J 25)
-      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
-      // Regex 3: Legacy (e.g. 01 O N 05)
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // Pattern 2: Slash Style (Improved to catch M/J/O/N more reliably)
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MJONF])\s*([MJONF])?\s*(?:20)?(\d{2})/);
+      // Pattern 3: Legacy
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MJONF])\s*([MJONF])?\s*(?:20)?(\d{2})/);
 
       if (mUnder) {
         if(!manualSub && mUnder[1]) sub = mUnder[1];
@@ -264,16 +264,19 @@
       else if (mSlash) {
         if(!manualSub && mSlash[1]) sub = mSlash[1];
         pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
-        let s = mSlash[4]; seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
-        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        let s = mSlash[4]; 
+        // Logic for MJ / ON
+        seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
+        let sName = (s === 'M' || s === 'F') ? "March" : ((s === 'J' || s === 'S') ? "Summer" : "Winter");
         resText = `Mark Scheme Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
       }
       else if (mLegacy) {
         if(!manualSub && mLegacy[1]) sub = mLegacy[1];
         pap = mLegacy[2]; yr = mLegacy[5];
-        let s = mLegacy[3]; seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
-        let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
+        let s = mLegacy[3]; 
+        seas = (s === 'M' || s === 'F') ? 'm' : ((s === 'J' || s === 'S') ? 's' : 'w');
+        let sName = (s === 'M' || s === 'F') ? "March" : ((s === 'J' || s === 'S') ? "Summer" : "Winter");
         resText = `Mark Scheme Paper ${pap} ${sName} 20${yr}`;
         urlPart = `${sub}_${seas}${yr}_ms_0${pap}`;
       }
@@ -285,7 +288,7 @@
         pdfLink.style.display = 'block';
         if(autoCopy) navigator.clipboard.writeText(resText);
       } else {
-        resultEl.textContent = "Not found. Adjust position.";
+        resultEl.textContent = "Code not found. Adjust and retry.";
         pdfLink.style.display = 'none';
       }
     }

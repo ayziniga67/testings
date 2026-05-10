@@ -25,16 +25,17 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 30px 20px;
+      padding: 40px 20px;
     }
 
     .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; letter-spacing: 2px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; letter-spacing: 2px; margin-bottom: 5px; }
+    .header p { font-size: 0.8rem; opacity: 0.6; }
 
     #video-wrap {
       width: 100%;
       max-width: 340px;
-      height: 200px;
+      height: 220px;
       background: var(--card-bg);
       border-radius: 15px;
       position: relative;
@@ -43,24 +44,26 @@
       justify-content: center;
       align-items: center;
       margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
     }
 
-    video { width: 100%; height: 100%; object-fit: cover; display: none; }
-    #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; }
+    video, #uploaded-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    #uploaded-img { object-fit: contain; background: #0b1926; }
 
     #aim-box {
       position: absolute;
-      width: 80%;
+      width: 85%;
       height: 50px;
       border: 2px solid #ffffff;
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
+      box-shadow: 0 0 15px rgba(255,255,255,0.2);
     }
 
     .action-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 30px;
       width: 100%;
       max-width: 340px;
@@ -72,12 +75,14 @@
       border: 1.5px solid #ffffff;
       padding: 12px 0;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.9rem;
       cursor: pointer;
       flex: 1;
       text-align: center;
       font-family: 'Outfit', sans-serif;
+      transition: all 0.2s;
     }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
     .output-section { width: 100%; max-width: 340px; }
 
@@ -85,28 +90,24 @@
       background: rgba(0, 77, 77, 0.4);
       padding: 15px;
       border-radius: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
       border-left: 4px solid #ffffff;
+      position: relative;
     }
 
     .section-title {
       font-family: 'Montserrat', sans-serif;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 1px;
-      opacity: 0.7;
+      opacity: 0.6;
       margin-bottom: 10px;
       display: block;
     }
 
-    .subject-sub {
-      font-size: 0.8rem;
-      opacity: 0.6;
-      display: block;
-      margin-bottom: 5px;
-    }
+    .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; font-weight: 300; }
 
-    #result-text { font-size: 1.2rem; font-weight: 600; display: block; }
+    #result-text { font-size: 1.15rem; font-weight: 600; display: block; line-height: 1.3; }
 
     .pdf-btn {
       display: none;
@@ -118,11 +119,24 @@
       text-decoration: none;
       font-weight: 700;
       margin-top: 5px;
-      transition: transform 0.2s;
+      font-size: 0.9rem;
     }
-    .pdf-btn:active { transform: scale(0.98); }
 
-    .progress-container { width: 100%; height: 3px; background: var(--progress-bg); margin-top: 10px; }
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      position: absolute;
+      right: 15px;
+      top: 12px;
+    }
+    .toggle-btn.off { opacity: 0.4; }
+
+    .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; border-radius: 2px; }
     #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
 
     canvas { display: none; }
@@ -132,24 +146,31 @@
 
   <div class="header">
     <h1>CAMBRIGE IS GAY</h1>
+    <p>Scanner Pro v3.0</p>
   </div>
 
   <div id="video-wrap">
     <video id="video" autoplay playsinline muted></video>
-    <img id="uploaded-img">
+    <img id="uploaded-img" alt="Preview">
     <div id="aim-box"></div>
+    <div id="loading-msg" style="position:absolute; font-size:0.8rem; opacity:0.5;">Camera Offline</div>
   </div>
 
   <div class="action-row">
     <button class="btn-action" id="main-btn" onclick="handleFlow()">Scan</button>
+    
+    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload</label>
+    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+    
     <button class="btn-action" onclick="handleManualPaste()">Paste</button>
   </div>
 
   <div class="output-section">
     <div class="section-group">
       <span class="section-title">For Rove</span>
+      <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">Auto-Copy Off</button>
       <span class="subject-sub" id="subject-display">Subject: ----</span>
-      <span id="result-text">Output here</span>
+      <span id="result-text">Ready to scan...</span>
     </div>
 
     <div class="section-group">
@@ -172,41 +193,45 @@
     const pdfLink = document.getElementById('pdf-link');
     const mainBtn = document.getElementById('main-btn');
     const bar = document.getElementById('bar');
+    const copyToggle = document.getElementById('copy-toggle');
     
-    let stream = null, worker = null, isCameraOn = false, currentMode = 'camera';
+    let stream = null, worker = null, isCameraOn = false, currentMode = 'camera', autoCopy = false;
 
     function parseCode(text) {
-      const clean = text.toUpperCase().trim().replace(/[^A-Z0-9_]/g, ' ');
+      // Normalize text: Replace confusing symbols with spaces, then uppercase
+      const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
-      let resText = "";
-      let urlPart = "";
-      let sub = "", pap = "", varnt = "", seas = "", yr = "", type = "ms"; // Defaulting to MS
+      let resText = "", urlPart = "";
+      let sub = "9709", pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
-      const mSlash = clean.match(/(\d{4})\s*(\d)\s*(\d)\s*([MFJON])\s*(\d{2})/);
-      const mLegacy = clean.match(/(\d{4})\s*0(\d)\s*([MFJON])\s*(\d{2})/);
-      const mUnder = clean.match(/(\d{4})_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // 1. Detect Filename Style: 9709_S25_QP_12
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // 2. Detect Modern Slash Style: 9709 1 2 M J 25
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
+      // 3. Detect Legacy Style: 9709 01 O N 05
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([MFJON0])\s*([MFJON0])?\s*(?:20)?(\d{2})/);
 
-      if (mSlash) {
-        sub = mSlash[1]; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[5];
+      if (mUnder) {
+        sub = mUnder[1] || "9709"; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        resText = `Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
+        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+      } 
+      else if (mSlash) {
+        sub = mSlash[1] || "9709"; pap = mSlash[2]; varnt = mSlash[3]; yr = mSlash[6];
         let s = mSlash[4];
         seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
         let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
         resText = `Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`; // Inserted MS automatically
-      } 
+        urlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`; // Auto-MS
+      }
       else if (mLegacy) {
-        sub = mLegacy[1]; pap = mLegacy[2]; yr = mLegacy[4];
+        sub = mLegacy[1] || "9709"; pap = mLegacy[2]; yr = mLegacy[5];
         let s = mLegacy[3];
         seas = (s === 'M') ? 'm' : (s === 'J' ? 's' : 'w');
         let sName = (s === 'M') ? "March" : (s === 'J' ? "Summer" : "Winter");
         resText = `Paper ${pap} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`; // Inserted MS automatically
-      }
-      else if (mUnder) {
-        sub = mUnder[1]; seas = mUnder[2].toLowerCase(); yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
-        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        resText = `Paper ${pap} Variant ${varnt} ${sName} 20${yr}`;
-        urlPart = `${sub}_${seas}${yr}_${type}_${pap}${varnt}`;
+        urlPart = `${sub}_${seas}${yr}_ms_0${pap}`; // Auto-MS
       }
 
       if (resText) {
@@ -214,9 +239,7 @@
         resultEl.textContent = resText;
         pdfLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${urlPart}.pdf`;
         pdfLink.style.display = 'block';
-        
-        // Auto-copy only the Rove-friendly text
-        navigator.clipboard.writeText(resText);
+        if(autoCopy) navigator.clipboard.writeText(resText);
       } else {
         resultEl.textContent = "No valid code found";
         pdfLink.style.display = 'none';
@@ -228,17 +251,39 @@
       try {
         const text = await navigator.clipboard.readText();
         if(text) parseCode(text);
-      } catch(e) { alert("Paste blocked. Grant permissions."); }
+      } catch(e) { alert("Paste permission required"); }
+    }
+
+    function toggleCopy() {
+      autoCopy = !autoCopy;
+      copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
+      copyToggle.classList.toggle('off', !autoCopy);
+    }
+
+    function handleFileUpload(event) {
+      if (event.target.files[0]) {
+        const url = URL.createObjectURL(event.target.files[0]);
+        uploadedImg.src = url;
+        uploadedImg.onload = () => {
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          isCameraOn = false;
+          video.style.display = 'none';
+          uploadedImg.style.display = 'block';
+          currentMode = 'image';
+          mainBtn.textContent = "Scan Image";
+        }
+      }
     }
 
     async function handleFlow() {
       if (currentMode === 'camera' && !isCameraOn) {
         await initWorker();
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          video.srcObject = stream; video.style.display = 'block'; isCameraOn = true;
-          mainBtn.textContent = "Scan Now";
-        } catch(e) { alert("Camera error"); }
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+          video.srcObject = stream; video.style.display = 'block'; uploadedImg.style.display = 'none';
+          isCameraOn = true; mainBtn.textContent = "Scan Now";
+          document.getElementById('loading-msg').style.display = 'none';
+        } catch(e) { alert("Camera Error"); }
       } else { scan(); }
     }
 
@@ -246,14 +291,21 @@
       if (worker) return;
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPmswqp/_ ' });
     }
 
     function scan() {
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      ctx.filter = 'grayscale(100%) contrast(200%) brightness(110%)';
-      ctx.drawImage(video, 0, 0);
+      mainBtn.disabled = true;
+      if (currentMode === 'image') {
+        canvas.width = uploadedImg.naturalWidth; canvas.height = uploadedImg.naturalHeight;
+      } else {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      }
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
+      ctx.drawImage(currentMode === 'image' ? uploadedImg : video, 0, 0);
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
+        mainBtn.disabled = false;
         bar.style.width = '0%';
       });
     }

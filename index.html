@@ -213,8 +213,7 @@
       if (worker) return;
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/_ ' });
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
     }
 
     async function toggleCamera() {
@@ -235,7 +234,6 @@
           uploadedImg.style.display = 'none';
           aimBox.style.display = 'block';
           camBtn.textContent = "Close Camera";
-          mainBtn.textContent = "Capture & Scan";
           isCameraOn = true;
           currentMode = 'camera';
           if(video.paused) video.play();
@@ -248,11 +246,12 @@
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
       let resText = "";
-      let pap = "", varnt = "", seas = "", yr = "", type = "ms";
+      let pap = "", varnt = "", seas = "", yr = "";
 
-      const mUnder = clean.match(/([A-Z0-9]{4})?_?([MSW])(\d{2})_(QP|MS)_0?([1-9])([1-9])?/);
-      const mSlash = clean.match(/([A-Z0-9]{4})?\s*0?([1-9])\s*([1-9])?\s*(M\s*J|O\s*N|0\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
-      const mLegacy = clean.match(/([A-Z0-9]{4})?\s*0([1-9])\s*(M\s*J|O\s*N|0\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      const mShort = clean.match(/([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
 
       let detectedSub = "";
       if (mUnder) detectedSub = mUnder[1];
@@ -261,39 +260,39 @@
 
       let sub = manualSub || detectedSub || "9709"; 
 
-      if (mUnder) {
-        seas = mUnder[2].toLowerCase(); 
-        yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; 
-        varnt = mUnder[6] || ""; // FIX: Explicitly empty if missing (Pre-2010 Under format)
+      if (mUnder || mShort) {
+        const match = mUnder || mShort;
+        seas = match[mUnder ? 2 : 1].toLowerCase(); 
+        yr = match[mUnder ? 3 : 2]; 
+        pap = match[mUnder ? 5 : 4]; 
+        varnt = match[mUnder ? 6 : 5] || "";
       } 
       else if (mSlash || mLegacy) {
         const match = mSlash || mLegacy;
         pap = match[2];
         let seasStr = "";
-        
         if (mSlash) {
-          varnt = match[3] || ""; // FIX: Empty instead of forcing "1" (Fixes Pre-2010 Slash format)
+          varnt = match[3] || "";
           seasStr = match[4].replace(/\s/g, ''); 
           yr = match[5];
         } else {
-          varnt = ""; // FIX: Legacy 0X codes don't have variants
+          varnt = "";
           seasStr = match[3].replace(/\s/g, '');
           yr = match[4];
         }
-        
         if (seasStr === 'MJ' || seasStr === 'S') seas = 's';
-        else if (seasStr === 'ON' || seasStr === '0N' || seasStr === 'W') seas = 'w';
+        else if (seasStr === 'ON' || seasStr === 'W') seas = 'w';
         else if (seasStr === 'FM' || seasStr === 'M') seas = 'm';
       }
 
       if (seas && pap) {
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        resText = `Paper ${pap}${varnt ? " Variant " + varnt : ""} ${sName} 20${yr}`;
+        let fullYear = (parseInt(yr) > 50 ? "19" : "20") + yr;
+        resText = `Paper ${pap}${varnt ? " Variant " + varnt : ""} ${sName} ${fullYear}`;
         
         subjectEl.textContent = `Subject: ${sub}`;
         resultEl.textContent = resText;
 
-        // When varnt is "", it outputs _qp_1 exactly like the 2006 link.
         const msUrlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
         const qpUrlPart = `${sub}_${seas}${yr}_qp_${pap}${varnt}`;
         
@@ -301,7 +300,6 @@
         qpLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
         
         pdfContainer.style.display = 'flex';
-        
         if(autoCopy) navigator.clipboard.writeText(resText);
       } else {
         resultEl.textContent = "No valid code found";
@@ -311,18 +309,14 @@
 
     async function scan() {
       if (currentMode === 'none') { alert("Open camera or upload image first"); return; }
-      
       if (currentMode === 'camera' && video.paused) {
         video.play();
         mainBtn.textContent = "Capture & Scan";
         bar.style.width = '0%';
         return;
       }
-
       await initWorker();
-      
       if (currentMode === 'camera') video.pause(); 
-      
       mainBtn.disabled = true;
       mainBtn.textContent = "Scanning...";
       
@@ -334,28 +328,17 @@
         const vidRatio = sw / sh;
         const wrapRatio = wrapW / wrapH;
         let drawW = sw, drawH = sh;
-        
-        if (vidRatio > wrapRatio) {
-          drawW = sh * wrapRatio; 
-          sx = (sw - drawW) / 2;
-        } else {
-          drawH = sw / wrapRatio;
-          sy = (sh - drawH) / 2;
-        }
-        
-        const boxCropW = drawW * 0.85; 
-        const boxCropH = drawH * (60 / 220); 
-        
+        if (vidRatio > wrapRatio) { drawW = sh * wrapRatio; sx = (sw - drawW) / 2; }
+        else { drawH = sw / wrapRatio; sy = (sh - drawH) / 2; }
+        const boxCropW = drawW * 0.85;
+        const boxCropH = drawH * (60 / 220);
         sx = sx + (drawW - boxCropW) / 2;
         sy = sy + (drawH - boxCropH) / 2;
-        sw = boxCropW;
-        sh = boxCropH;
+        sw = boxCropW; sh = boxCropH;
       }
 
       const scale = 3; 
-      canvas.width = sw * scale;
-      canvas.height = sh * scale;
-      
+      canvas.width = sw * scale; canvas.height = sh * scale;
       ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
       ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       

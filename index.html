@@ -53,13 +53,13 @@
     #aim-box {
       position: absolute;
       width: 85%;
-      height: 60px; /* Made slightly taller for better scans */
+      height: 60px;
       border: 2px solid #ffffff;
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
       display: none;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); /* Darkens everything outside the box */
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
     }
 
     .action-row {
@@ -213,7 +213,9 @@
       if (worker) return;
       worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
+      
+      // FIX 1: Updated the dictionary to include all letters so it catches ANY subject code type
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/_ ' });
     }
 
     async function toggleCamera() {
@@ -249,12 +251,12 @@
       let resText = "";
       let pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
-      // 1. UnderScore Regex
-      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-      // 2. Slash Regex (Made much stricter to fix session confusion)
-      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
-      // 3. Legacy Regex
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      // Updated regex to catch letter-based subjects (e.g. 8MA0) and older code formats
+      const mUnder = clean.match(/([A-Z0-9]{4})?_?([MSW])(\d{2})_(QP|MS)_0?([1-9])([1-9])?/);
+      
+      // FIX 2 & 3: Added '0\s*N' to catch OCR mistaking O for 0 on older papers, and '0?([1-9])' for older leading zeros
+      const mSlash = clean.match(/([A-Z0-9]{4})?\s*0?([1-9])\s*([1-9])?\s*(M\s*J|O\s*N|0\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      const mLegacy = clean.match(/([A-Z0-9]{4})?\s*0([1-9])\s*(M\s*J|O\s*N|0\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
 
       let detectedSub = "";
       if (mUnder) detectedSub = mUnder[1];
@@ -274,7 +276,7 @@
         
         if (mSlash) {
           varnt = match[3] || "1";
-          seasStr = match[4].replace(/\s/g, ''); // Removes spaces to match perfectly
+          seasStr = match[4].replace(/\s/g, ''); 
           yr = match[5];
         } else {
           varnt = "1";
@@ -282,9 +284,9 @@
           yr = match[4];
         }
         
-        // Solid, foolproof session matching
+        // Solid, foolproof session matching handling the '0N' bug
         if (seasStr === 'MJ' || seasStr === 'S') seas = 's';
-        else if (seasStr === 'ON' || seasStr === 'W') seas = 'w';
+        else if (seasStr === 'ON' || seasStr === '0N' || seasStr === 'W') seas = 'w';
         else if (seasStr === 'FM' || seasStr === 'M') seas = 'm';
       }
 
@@ -313,7 +315,6 @@
     async function scan() {
       if (currentMode === 'none') { alert("Open camera or upload image first"); return; }
       
-      // If camera is paused, unpause it and wait for next click
       if (currentMode === 'camera' && video.paused) {
         video.play();
         mainBtn.textContent = "Capture & Scan";
@@ -323,7 +324,6 @@
 
       await initWorker();
       
-      // Take snapshot visually
       if (currentMode === 'camera') video.pause(); 
       
       mainBtn.disabled = true;
@@ -332,7 +332,6 @@
       const source = currentMode === 'image' ? uploadedImg : video;
       let sx = 0, sy = 0, sw = source.naturalWidth || source.videoWidth, sh = source.naturalHeight || source.videoHeight;
       
-      // Exact Cropping Logic to match the white #aim-box
       if (currentMode === 'camera') {
         const wrapW = 340, wrapH = 220; 
         const vidRatio = sw / sh;
@@ -347,8 +346,8 @@
           sy = (sh - drawH) / 2;
         }
         
-        const boxCropW = drawW * 0.85; // 85% width
-        const boxCropH = drawH * (60 / 220); // 60px height
+        const boxCropW = drawW * 0.85; 
+        const boxCropH = drawH * (60 / 220); 
         
         sx = sx + (drawW - boxCropW) / 2;
         sy = sy + (drawH - boxCropH) / 2;
@@ -356,7 +355,6 @@
         sh = boxCropH;
       }
 
-      // Upscale for high-accuracy OCR
       const scale = 3; 
       canvas.width = sw * scale;
       canvas.height = sh * scale;

@@ -53,12 +53,13 @@
     #aim-box {
       position: absolute;
       width: 85%;
-      height: 50px;
+      height: 60px; /* Made slightly taller for better scans */
       border: 2px solid #ffffff;
       border-radius: 10px;
       pointer-events: none;
       z-index: 5;
       display: none;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); /* Darkens everything outside the box */
     }
 
     .action-row {
@@ -83,16 +84,9 @@
       font-family: 'Outfit', sans-serif;
       transition: 0.2s;
     }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
 
-    .btn-action:active {
-      background: rgba(255,255,255,0.1);
-      transform: scale(0.96);
-    }
-
-    .output-section {
-      width: 100%;
-      max-width: 340px;
-    }
+    .output-section { width: 100%; max-width: 340px; }
 
     .section-group {
       background: rgba(0, 77, 77, 0.4);
@@ -113,25 +107,10 @@
       display: block;
     }
 
-    .subject-sub {
-      font-size: 0.8rem;
-      opacity: 0.5;
-      display: block;
-      margin-bottom: 4px;
-    }
+    .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; }
+    #result-text { font-size: 1.1rem; font-weight: 600; display: block; line-height: 1.3; }
 
-    #result-text {
-      font-size: 1.1rem;
-      font-weight: 600;
-      display: block;
-      line-height: 1.3;
-    }
-
-    .pdf-container {
-      display: none;
-      gap: 8px;
-      margin-top: 5px;
-    }
+    .pdf-container { display: none; gap: 8px; margin-top: 5px; }
 
     .pdf-btn {
       flex: 1;
@@ -157,31 +136,14 @@
       right: 15px;
       top: 12px;
     }
+    .toggle-btn.off { opacity: 0.4; }
 
-    .toggle-btn.off {
-      opacity: 0.4;
-    }
+    .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; }
+    #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
 
-    .progress-container {
-      width: 100%;
-      height: 2px;
-      background: var(--progress-bg);
-      margin-top: 10px;
-    }
-
-    #bar {
-      height: 100%;
-      background: #ffffff;
-      width: 0%;
-      transition: width 0.2s;
-    }
-
-    canvas {
-      display: none;
-    }
+    canvas { display: none; }
   </style>
 </head>
-
 <body>
 
   <div class="header">
@@ -196,455 +158,247 @@
   </div>
 
   <div style="width: 100%; max-width: 340px; margin-bottom: 15px;">
-    <input
-      type="text"
-      id="manual-sub"
-      placeholder="Subject Code (e.g. 0580)"
-      style="width: 100%; padding: 14px; border-radius: 8px; border: 2px solid #ffffff; background: rgba(0, 77, 77, 0.3); color: white; text-align: center; font-family: 'Outfit', sans-serif; font-size: 1rem; outline: none;"
-    >
+    <input type="text" id="manual-sub" placeholder="Subject Code (e.g. 0580)" 
+           style="width: 100%; padding: 14px; border-radius: 8px; border: 2px solid #ffffff; background: rgba(0, 77, 77, 0.3); color: white; text-align: center; font-family: 'Outfit', sans-serif; font-size: 1rem; outline: none;">
   </div>
 
   <div class="action-row">
     <button class="btn-action" id="cam-btn" onclick="toggleCamera()">Open Camera</button>
-    <button class="btn-action" id="main-btn" onclick="scan()">Scan Now</button>
-
-    <label class="btn-action" for="file-upload"
-      style="cursor: pointer; display: flex; align-items: center; justify-content: center;">
-      Upload
-    </label>
-
-    <input
-      type="file"
-      id="file-upload"
-      accept="image/*"
-      style="display: none;"
-      onchange="handleFileUpload(event)"
-    >
-
+    <button class="btn-action" id="main-btn" onclick="scan()">Capture & Scan</button>
+    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload</label>
+    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
     <button class="btn-action" onclick="handleManualPaste()">Paste</button>
   </div>
 
   <div class="output-section">
-
     <div class="section-group">
       <span class="section-title">For Rove</span>
-
-      <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">
-        Auto-Copy Off
-      </button>
-
-      <span class="subject-sub" id="subject-display">
-        Subject: ----
-      </span>
-
-      <span id="result-text">
-        Ready...
-      </span>
+      <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">Auto-Copy Off</button>
+      <span class="subject-sub" id="subject-display">Subject: ----</span>
+      <span id="result-text">Ready...</span>
     </div>
 
     <div class="section-group">
       <span class="section-title">For Papa Cambridge</span>
-
       <div id="pdf-container" class="pdf-container">
         <a id="ms-link" class="pdf-btn" target="_blank">MS PDF</a>
         <a id="qp-link" class="pdf-btn" target="_blank">QP PDF</a>
       </div>
     </div>
 
-    <div class="progress-container">
-      <div id="bar"></div>
-    </div>
-
+    <div class="progress-container"><div id="bar"></div></div>
   </div>
 
   <canvas id="canvas"></canvas>
 
   <script>
-
     const video = document.getElementById('video');
     const uploadedImg = document.getElementById('uploaded-img');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-
     const resultEl = document.getElementById('result-text');
     const subjectEl = document.getElementById('subject-display');
-
     const pdfContainer = document.getElementById('pdf-container');
     const msLink = document.getElementById('ms-link');
     const qpLink = document.getElementById('qp-link');
-
     const mainBtn = document.getElementById('main-btn');
     const camBtn = document.getElementById('cam-btn');
     const aimBox = document.getElementById('aim-box');
-
     const bar = document.getElementById('bar');
     const copyToggle = document.getElementById('copy-toggle');
-
-    let stream = null;
-    let worker = null;
-    let isCameraOn = false;
-    let currentMode = 'none';
-    let autoCopy = false;
+    
+    let stream = null, worker = null, isCameraOn = false, currentMode = 'none', autoCopy = false;
 
     async function initWorker() {
-
       if (worker) return;
-
-      worker = Tesseract.createWorker({
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            bar.style.width = (m.progress * 100) + '%';
-          }
-        }
-      });
-
-      await worker.load();
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
-
-      await worker.setParameters({
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz/_ '
-      });
-
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
     }
 
     async function toggleCamera() {
-
       if (isCameraOn) {
-
-        if (stream) {
-          stream.getTracks().forEach(t => t.stop());
-        }
-
+        if (stream) stream.getTracks().forEach(t => t.stop());
         video.style.display = 'none';
         aimBox.style.display = 'none';
-
         camBtn.textContent = "Open Camera";
-
+        mainBtn.textContent = "Capture & Scan";
         isCameraOn = false;
-
-        currentMode = (uploadedImg.style.display === 'block')
-          ? 'image'
-          : 'none';
-
+        currentMode = (uploadedImg.style.display === 'block') ? 'image' : 'none';
       } else {
-
         await initWorker();
-
         try {
-
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: 'environment',
-              width: { ideal: 1280 }
-            }
-          });
-
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
           video.srcObject = stream;
-
           video.style.display = 'block';
           uploadedImg.style.display = 'none';
           aimBox.style.display = 'block';
-
           camBtn.textContent = "Close Camera";
-
+          mainBtn.textContent = "Capture & Scan";
           isCameraOn = true;
           currentMode = 'camera';
-
-        } catch(e) {
-
-          alert("Camera Access Denied");
-
-        }
-
+          if(video.paused) video.play();
+        } catch(e) { alert("Camera Access Denied"); }
       }
-
     }
 
     function parseCode(text) {
-
       const manualSub = document.getElementById('manual-sub').value.trim();
-
-      const clean = text
-        .toUpperCase()
-        .replace(/[^A-Z0-9_]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
+      const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
+      
       let resText = "";
+      let pap = "", varnt = "", seas = "", yr = "", type = "ms";
 
-      let pap = "";
-      let varnt = "";
-      let seas = "";
-      let yr = "";
-      let type = "ms";
-
-      const compact = clean.replace(/\s+/g, '');
-
-      const mUnder = compact.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
-
-      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])\s*([A-Z]{1,2})\s*(?:20)?(\d{2})/);
-
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*([A-Z]{1,2})\s*(?:20)?(\d{2})/);
+      // 1. UnderScore Regex
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)/);
+      // 2. Slash Regex (Made much stricter to fix session confusion)
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+      // 3. Legacy Regex
+      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
 
       let detectedSub = "";
+      if (mUnder) detectedSub = mUnder[1];
+      else if (mSlash) detectedSub = mSlash[1];
+      else if (mLegacy) detectedSub = mLegacy[1];
+
+      let sub = manualSub || detectedSub || "9709"; 
 
       if (mUnder) {
-        detectedSub = mUnder[1];
-      }
-      else if (mSlash) {
-        detectedSub = mSlash[1];
-      }
-      else if (mLegacy) {
-        detectedSub = mLegacy[1];
-      }
-
-      let sub = manualSub || detectedSub || "9709";
-
-      if (mUnder) {
-
-        seas = mUnder[2].toLowerCase();
-        yr = mUnder[3];
-        type = mUnder[4].toLowerCase();
-
-        pap = mUnder[5];
-        varnt = mUnder[6];
-
-      }
-
+        seas = mUnder[2].toLowerCase(); 
+        yr = mUnder[3]; type = mUnder[4].toLowerCase(); pap = mUnder[5]; varnt = mUnder[6];
+      } 
       else if (mSlash || mLegacy) {
-
         const match = mSlash || mLegacy;
-
         pap = match[2];
-
-        let seasonText = compact;
-
-        if (
-          seasonText.includes("FM") ||
-          seasonText.includes("MF")
-        ) {
-
-          seas = "m";
-
+        let seasStr = "";
+        
+        if (mSlash) {
+          varnt = match[3] || "1";
+          seasStr = match[4].replace(/\s/g, ''); // Removes spaces to match perfectly
+          yr = match[5];
+        } else {
+          varnt = "1";
+          seasStr = match[3].replace(/\s/g, '');
+          yr = match[4];
         }
-
-        else if (
-          seasonText.includes("MJ") ||
-          seasonText.includes("JM")
-        ) {
-
-          seas = "s";
-
-        }
-
-        else if (
-          seasonText.includes("ON") ||
-          seasonText.includes("NO")
-        ) {
-
-          seas = "w";
-
-        }
-
-        else {
-
-          const single = (match[3] || "").charAt(0);
-
-          if (single === "F" || single === "M") {
-            seas = "m";
-          }
-
-          else if (single === "J" || single === "S") {
-            seas = "s";
-          }
-
-          else if (single === "O" || single === "N" || single === "W") {
-            seas = "w";
-          }
-
-        }
-
-        varnt = "1";
-
-        yr = match[4] || match[5];
-
+        
+        // Solid, foolproof session matching
+        if (seasStr === 'MJ' || seasStr === 'S') seas = 's';
+        else if (seasStr === 'ON' || seasStr === 'W') seas = 'w';
+        else if (seasStr === 'FM' || seasStr === 'M') seas = 'm';
       }
 
       if (seas && pap) {
-
-        let typeName =
-          (type === 'qp')
-          ? "Question Paper"
-          : "Mark Scheme";
-
-        let sName =
-          (seas === 'm')
-          ? "March"
-          : (seas === 's')
-            ? "Summer"
-            : "Winter";
-
-        resText =
-          `${typeName} Paper ${pap}` +
-          `${varnt !== "1" ? " Variant " + varnt : ""} ` +
-          `${sName} 20${yr}`;
-
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        resText = `Paper ${pap}${varnt !== "1" ? " Variant " + varnt : ""} ${sName} 20${yr}`;
+        
         subjectEl.textContent = `Subject: ${sub}`;
-
         resultEl.textContent = resText;
 
-        const msUrlPart =
-          `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
-
-        const qpUrlPart =
-          `${sub}_${seas}${yr}_qp_${pap}${varnt}`;
-
-        msLink.href =
-          `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
-
-        qpLink.href =
-          `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
-
+        const msUrlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
+        const qpUrlPart = `${sub}_${seas}${yr}_qp_${pap}${varnt}`;
+        
+        msLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
+        qpLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
+        
         pdfContainer.style.display = 'flex';
-
-        if (autoCopy) {
-          navigator.clipboard.writeText(resText);
-        }
-
-      }
-
-      else {
-
+        
+        if(autoCopy) navigator.clipboard.writeText(resText);
+      } else {
         resultEl.textContent = "No valid code found";
         pdfContainer.style.display = 'none';
-
       }
-
     }
 
     async function scan() {
-
-      if (currentMode === 'none') {
-
-        alert("Open camera or upload image first");
+      if (currentMode === 'none') { alert("Open camera or upload image first"); return; }
+      
+      // If camera is paused, unpause it and wait for next click
+      if (currentMode === 'camera' && video.paused) {
+        video.play();
+        mainBtn.textContent = "Capture & Scan";
+        bar.style.width = '0%';
         return;
-
       }
 
       await initWorker();
-
+      
+      // Take snapshot visually
+      if (currentMode === 'camera') video.pause(); 
+      
       mainBtn.disabled = true;
       mainBtn.textContent = "Scanning...";
+      
+      const source = currentMode === 'image' ? uploadedImg : video;
+      let sx = 0, sy = 0, sw = source.naturalWidth || source.videoWidth, sh = source.naturalHeight || source.videoHeight;
+      
+      // Exact Cropping Logic to match the white #aim-box
+      if (currentMode === 'camera') {
+        const wrapW = 340, wrapH = 220; 
+        const vidRatio = sw / sh;
+        const wrapRatio = wrapW / wrapH;
+        let drawW = sw, drawH = sh;
+        
+        if (vidRatio > wrapRatio) {
+          drawW = sh * wrapRatio; 
+          sx = (sw - drawW) / 2;
+        } else {
+          drawH = sw / wrapRatio;
+          sy = (sh - drawH) / 2;
+        }
+        
+        const boxCropW = drawW * 0.85; // 85% width
+        const boxCropH = drawH * (60 / 220); // 60px height
+        
+        sx = sx + (drawW - boxCropW) / 2;
+        sy = sy + (drawH - boxCropH) / 2;
+        sw = boxCropW;
+        sh = boxCropH;
+      }
 
-      const source =
-        currentMode === 'image'
-        ? uploadedImg
-        : video;
-
-      const w =
-        source.naturalWidth || source.videoWidth;
-
-      const h =
-        source.naturalHeight || source.videoHeight;
-
-      const scale = Math.min(1, 800 / w);
-
-      canvas.width = w * scale;
-      canvas.height = h * scale;
-
-      ctx.filter =
-        'grayscale(100%) contrast(250%) brightness(110%)';
-
-      ctx.drawImage(
-        source,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
+      // Upscale for high-accuracy OCR
+      const scale = 3; 
+      canvas.width = sw * scale;
+      canvas.height = sh * scale;
+      
+      ctx.filter = 'grayscale(100%) contrast(250%) brightness(110%)';
+      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      
       worker.recognize(canvas).then(({ data: { text } }) => {
-
         parseCode(text);
-
         mainBtn.disabled = false;
-        mainBtn.textContent = "Scan Now";
-
+        mainBtn.textContent = currentMode === 'camera' ? "Resume Camera" : "Scan Image";
         bar.style.width = '0%';
-
       });
-
     }
 
     async function handleManualPaste() {
-
       try {
-
-        const text =
-          await navigator.clipboard.readText();
-
-        if (text) {
-          parseCode(text);
-        }
-
-      }
-
-      catch(e) {
-
-        alert("Enable clipboard permissions");
-
-      }
-
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Enable clipboard permissions"); }
     }
 
     function toggleCopy() {
-
       autoCopy = !autoCopy;
-
-      copyToggle.textContent =
-        autoCopy
-        ? "Auto-Copy On"
-        : "Auto-Copy Off";
-
-      copyToggle.classList.toggle(
-        'off',
-        !autoCopy
-      );
-
+      copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
+      copyToggle.classList.toggle('off', !autoCopy);
     }
 
     function handleFileUpload(event) {
-
       if (event.target.files[0]) {
-
-        const url =
-          URL.createObjectURL(event.target.files[0]);
-
+        const url = URL.createObjectURL(event.target.files[0]);
         uploadedImg.src = url;
-
         uploadedImg.onload = () => {
-
-          if (isCameraOn) {
-            toggleCamera();
-          }
-
+          if (isCameraOn) toggleCamera();
           video.style.display = 'none';
-
           uploadedImg.style.display = 'block';
-
           currentMode = 'image';
-
-          resultEl.textContent =
-            "Image loaded. Ready to scan.";
-
+          mainBtn.textContent = "Scan Image";
+          resultEl.textContent = "Image loaded. Ready to scan.";
         }
-
       }
-
     }
-
   </script>
-
 </body>
 </html>

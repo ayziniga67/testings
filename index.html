@@ -167,7 +167,7 @@
     <button class="btn-action" id="main-btn" onclick="scan()">Capture & Scan</button>
     <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload</label>
     <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
-    <button display: none;class="btn-action" onclick="handleManualPaste()">Paste</button>
+    <button class="btn-action" onclick="handleManualPaste()">Paste</button> 
   </div>
 
   <div class="output-section">
@@ -360,12 +360,20 @@
       });
     }
 
-    async function handleManualPaste() {
+        async function handleManualPaste() {
       try {
         const text = await navigator.clipboard.readText();
-        if(text) parseCode(text);
-      } catch(e) { alert("Enable clipboard permissions"); }
+        if (text) {
+          // Visual feedback that paste worked
+          bar.style.width = '100%';
+          parseCode(text);
+          setTimeout(() => { bar.style.width = '0%'; }, 600);
+        }
+      } catch (e) {
+        alert("Clipboard access denied. Please allow permissions or paste directly into the box.");
+      }
     }
+
 
     function toggleCopy() {
       autoCopy = !autoCopy;

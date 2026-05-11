@@ -12,7 +12,7 @@
       --card-bg: #004d4d;
       --text-main: #ffffff;
       --accent-teal: #006666;
-      --progress-bg: #4a5a6a;
+      --progress-bg: rgba(74, 90, 106, 1.0);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -248,19 +248,14 @@
       let resText = "";
       let pap = "", varnt = "", seas = "", yr = "";
 
-      // 1. Standard Underscore (9709_s23_qp_12)
+      // Improved Regex for 2010-2019 era
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
-      // 2. Short/Image format (s09_qp_1 or s15_qp_12) - Loosened regex for 2010-2019
       const mShort = clean.match(/([MSW])\s*(\d{2})\s*[_ ]?\s*(QP|MS)\s*[_ ]?\s*(\d)(\d)?/);
-      // 3. Slash/Space format (9709 12 MJ 15)
       const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
-      // 4. Legacy format (9709 01 MJ 06)
-      const mLegacy = clean.match(/(\d{4})?\s*0([1-8])\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
 
       let detectedSub = "";
       if (mUnder) detectedSub = mUnder[1];
       else if (mSlash) detectedSub = mSlash[1];
-      else if (mLegacy) detectedSub = mLegacy[1];
 
       let sub = manualSub || detectedSub || "9709"; 
 
@@ -271,19 +266,11 @@
         pap = match[mUnder ? 5 : 4]; 
         varnt = match[mUnder ? 6 : 5] || "";
       } 
-      else if (mSlash || mLegacy) {
-        const match = mSlash || mLegacy;
-        pap = match[2];
-        let seasStr = "";
-        if (mSlash) {
-          varnt = match[3] || "";
-          seasStr = match[4].replace(/\s/g, ''); 
-          yr = match[5];
-        } else {
-          varnt = "";
-          seasStr = match[3].replace(/\s/g, '');
-          yr = match[4];
-        }
+      else if (mSlash) {
+        pap = mSlash[2];
+        varnt = mSlash[3] || "";
+        let seasStr = mSlash[4].replace(/\s/g, ''); 
+        yr = mSlash[5];
         if (seasStr === 'MJ' || seasStr === 'S') seas = 's';
         else if (seasStr === 'ON' || seasStr === 'W') seas = 'w';
         else if (seasStr === 'FM' || seasStr === 'M') seas = 'm';
@@ -291,21 +278,25 @@
 
       if (seas && pap) {
         let yrInt = parseInt(yr);
-        
-        // CONDITION: If year is less than 2010 (00-09), ignore the variant
-        if (yrInt < 10) {
-            varnt = "";
-        }
-
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
         let fullYear = (yrInt > 50 ? "19" : "20") + yr;
-        resText = `Paper ${pap}${varnt ? " Variant " + varnt : ""} ${sName} ${fullYear}`;
+
+        // FIXED LOGIC: 
+        // Before 2010 -> Ignore Variant entirely.
+        // 2010 and later -> Accept Variant, default to '1' if missing.
+        let finalVarnt = "";
+        if (yrInt >= 10) {
+          finalVarnt = varnt || "1"; 
+        }
+
+        resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYear}`;
         
         subjectEl.textContent = `Subject: ${sub}`;
         resultEl.textContent = resText;
 
-        const msUrlPart = `${sub}_${seas}${yr}_ms_${pap}${varnt}`;
-        const qpUrlPart = `${sub}_${seas}${yr}_qp_${pap}${varnt}`;
+        const fileSuffix = pap + finalVarnt;
+        const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
+        const qpUrlPart = `${sub}_${seas}${yr}_qp_${fileSuffix}`;
         
         msLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
         qpLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
@@ -348,9 +339,9 @@
         sw = boxCropW; sh = boxCropH;
       }
 
-      const scale = 3; 
+      const scale = 4; // Increased scale for better 2010-2019 detection
       canvas.width = sw * scale; canvas.height = sh * scale;
-      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)'; // Increased contrast for older paper clarity
+      ctx.filter = 'grayscale(100%) contrast(350%) brightness(110%)'; 
       ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       
       worker.recognize(canvas).then(({ data: { text } }) => {

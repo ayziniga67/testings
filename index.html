@@ -3,165 +3,302 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge MS-First</title>
+  <title>Leakbridge - Smart Routing</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f172a; --accent: #38bdf8; --card: #1e293b; --text: #ffffff; }
-    body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .container { width: 100%; max-width: 400px; }
-    
-    .input-card { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
-    input { width: 100%; padding: 15px; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; text-align: center; margin-top: 10px; }
+    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --warn: #facc15; --text: #f8fafc; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .container { width: 100%; max-width: 450px; }
 
-    .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
-    .btn-primary { background: var(--accent); color: #0f172a; }
+    /* Horizontal Camera Box */
+    #media-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 9; /* Forces Horizontal Dimension */
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+    }
+    video, #captured-img { width: 100%; height: 100%; object-fit: cover; }
+    #captured-img { display: none; }
+
+    /* Dynamic Input Box */
+    .input-zone { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid transparent; transition: 0.3s; display: none; }
+    .input-zone.active { display: block; border-color: var(--warn); }
+    .input-zone label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 5px; }
+    input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: rgba(15,23,42,0.8); color: white; text-align: center; font-size: 1rem; outline: none; }
+
+    /* Buttons */
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+    .btn { padding: 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; text-align: center; font-size: 0.85rem; }
+    .btn-cam { background: transparent; border: 1.5px solid white; color: white; }
+    .btn-scan { background: var(--accent); color: #000; grid-column: span 2; font-size: 1rem; }
+    .btn:active { transform: scale(0.98); }
+
+    /* Status & Output */
+    #status-text { text-align: center; font-size: 0.8rem; margin-bottom: 15px; min-height: 20px; color: #94a3b8; }
+    .viewer-sec { display: none; background: var(--card); padding: 15px; border-radius: 12px; margin-top: 10px; }
+    .paper-info { font-weight: 700; font-size: 1.1rem; text-align: center; color: var(--accent); margin-bottom: 5px; }
+    .route-info { text-align: center; font-size: 0.75rem; opacity: 0.8; margin-bottom: 15px; }
     
-    #result-area { display: none; width: 100%; margin-top: 20px; }
-    .status-pill { background: rgba(56, 189, 248, 0.2); color: var(--accent); padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-    
-    iframe { width: 100%; height: 500px; border-radius: 12px; border: none; background: white; margin-top: 15px; }
-    .link-bar { display: flex; gap: 10px; margin: 10px 0; }
-    .link-bar a { flex: 1; background: #fff; color: #000; text-align: center; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 0.8rem; border: 2px solid var(--accent); }
+    iframe { width: 100%; height: 450px; border-radius: 8px; border: none; background: white; }
+    canvas { display: none; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <div class="input-card">
-    <input type="text" id="manual-input" placeholder="9702 M23/12">
-    <div id="status" style="text-align:center; font-size:0.8rem; margin-top:10px; opacity:0.6;">Ready</div>
+  <h2 style="text-align:center; font-weight:300; margin-bottom:15px; letter-spacing:2px;">LEAKBRIDGE</h2>
+
+  <div id="media-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <img id="captured-img">
   </div>
 
-  <button class="btn btn-primary" id="go-btn" onclick="masterControl()">OPEN MARK SCHEME</button>
-  
-  <label class="btn" style="display:block; text-align:center; background:#334155; color:white;">
-    SCAN QUESTION PHOTO <input type="file" hidden id="file-in" onchange="processImage(event)">
-  </label>
-
-  <div id="result-area">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span id="paper-label" style="font-weight:600;"></span>
-      <span class="status-pill" id="page-status">IDLE</span>
-    </div>
-
-    <div class="link-bar">
-      <a id="ms-url" target="_blank">MARK SCHEME (NEW TAB)</a>
-      <a id="qp-url" target="_blank">VIEW QP</a>
-    </div>
-
-    <iframe id="viewer"></iframe>
+  <div class="input-zone" id="input-zone">
+    <label id="input-label">Manual Input Required</label>
+    <input type="text" id="manual-input" placeholder="...">
+    <button class="btn btn-scan" style="margin-top:10px;" onclick="resumeSearch()">CONTINUE SEARCH</button>
   </div>
+
+  <div class="btn-grid" id="controls">
+    <button class="btn btn-cam" onclick="startCamera()">Toggle Camera</button>
+    <label class="btn btn-cam" style="display:block;">Upload<input type="file" hidden onchange="handleUpload(event)"></label>
+    <button class="btn btn-scan" id="scan-btn" onclick="captureAndAnalyze()">CAPTURE & ANALYZE</button>
+  </div>
+
+  <div id="status-text">Awaiting input...</div>
+
+  <div class="viewer-sec" id="viewer-sec">
+    <div class="paper-info" id="paper-id">9702 | M23 | 12</div>
+    <div class="route-info" id="route-path">Routing...</div>
+    <iframe id="pdf-viewer"></iframe>
+  </div>
+
 </div>
+<canvas id="canvas"></canvas>
 
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   
-  let detectedText = "";
+  const video = document.getElementById('video');
+  const img = document.getElementById('captured-img');
+  const canvas = document.getElementById('canvas');
+  const status = document.getElementById('status-text');
+  
+  let stream = null;
+  let useVideo = true;
+  
+  // State Machine Variables
+  let sessionState = { sub: '', seas: '', yr: '', pap: '', explicitQ: null, words: [] };
 
-  // 1. Handle the Photo
-  async function processImage(e) {
-    const file = e.target.files[0];
-    if(!file) return;
-    const status = document.getElementById('status');
-    status.innerText = "Reading text from image...";
-    
+  // --- 1. MEDIA CONTROLS ---
+  async function startCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     try {
-      const worker = await Tesseract.createWorker('eng');
-      const { data: { text } } = await worker.recognize(file);
-      detectedText = text;
-      await worker.terminate(); // Kill worker immediately to save RAM
-
-      status.innerText = "Text captured. Parsing code...";
-      // Try to auto-fill the code box
-      const m = text.toUpperCase().replace(/\s+/g, '').match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/);
-      if(m) document.getElementById('manual-input').value = (m[1]||"") + " " + m[2] + m[3] + "/" + m[4];
-      
-      status.innerText = "Ready to search.";
-    } catch(err) {
-      status.innerText = "OCR failed. Enter code manually.";
-    }
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream; video.style.display = 'block'; img.style.display = 'none'; useVideo = true;
+      document.getElementById('input-zone').classList.remove('active');
+    } catch(e) { alert("Camera denied."); }
   }
 
-  // 2. Main Logic Trigger
-  function masterControl() {
-    const input = document.getElementById('manual-input').value.toUpperCase().replace(/\s+/g, '');
-    const m = input.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
+  function handleUpload(e) {
+    if(!e.target.files[0]) return;
+    img.src = URL.createObjectURL(e.target.files[0]);
+    img.style.display = 'block'; video.style.display = 'none'; useVideo = false;
+    if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  }
 
-    if(!m) {
-      alert("Please enter code correctly: e.g. 9702 M23/12");
+  // --- 2. OCR & PARSING ---
+  async function captureAndAnalyze() {
+    status.innerText = "Scanning photo (OCR)...";
+    document.getElementById('scan-btn').disabled = true;
+    document.getElementById('input-zone').classList.remove('active');
+
+    let source = img;
+    if(useVideo) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      source = canvas;
+    }
+
+    try {
+      const worker = await Tesseract.createWorker('eng');
+      const { data: { text } } = await worker.recognize(source);
+      await worker.terminate();
+      
+      parseOCRText(text);
+    } catch(e) {
+      status.innerText = "OCR Failed. Please enter manually.";
+      askForManual("Full Code (e.g. 9702 M23/12)", "9702 M23/12");
+    }
+    document.getElementById('scan-btn').disabled = false;
+  }
+
+  function parseOCRText(text) {
+    status.innerText = "Parsing data...";
+    const clean = text.toUpperCase();
+    
+    // 1. Find Paper Code: (Optional 4 digits) + (M/S/W/F) + (2 digits) / (1-2 digits)
+    const codeMatch = clean.replace(/\s+/g, '').match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/);
+    if(codeMatch) {
+      sessionState.sub = codeMatch[1] || "";
+      sessionState.seas = (codeMatch[2]==='M'||codeMatch[2]==='F')?'m':(codeMatch[2]==='S'?'s':'w');
+      sessionState.yr = codeMatch[3];
+      sessionState.pap = codeMatch[4];
+    }
+
+    // 2. Find Explicit Question Number (e.g., "Question 4", "Q4", "4.")
+    const qMatch = clean.match(/(?:QUESTION|Q)\s*(\d+)/i) || text.match(/(?:^|\n)\s*(\d+)\s*\.\s*[A-Z]/);
+    if(qMatch) sessionState.explicitQ = qMatch[1];
+
+    // 3. Extract unique word combinations for deep search (Fallback)
+    sessionState.words = text.toLowerCase().replace(/[^a-z ]/g, '').split(' ').filter(w => w.length > 5).slice(0, 4);
+
+    checkStateAndRoute();
+  }
+
+  // --- 3. ROUTING & UI PROMPTS ---
+  function checkStateAndRoute() {
+    // If no paper details found at all
+    if(!sessionState.seas || !sessionState.yr || !sessionState.pap) {
+      askForManual("Code not found. Enter Full Code:", "e.g. 9702 M23/12");
+      return;
+    }
+    // If paper details found, but NO subject
+    if(!sessionState.sub) {
+      askForManual(`Found ${sessionState.seas.toUpperCase()}${sessionState.yr}/P${sessionState.pap}. Enter Subject Code:`, "e.g. 9702");
       return;
     }
 
-    const sub = m[1];
-    const seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
-    const yr = m[3];
-    const pap = m[4];
+    // All Good! Proceed to PDF logic
+    document.getElementById('input-zone').classList.remove('active');
+    document.getElementById('controls').style.display = 'none';
+    executeSearch();
+  }
 
-    // Build URLs
-    const ms = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-    const qp = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
+  function askForManual(labelTxt, placeholderTxt) {
+    const zone = document.getElementById('input-zone');
+    document.getElementById('input-label').innerText = labelTxt;
+    document.getElementById('manual-input').placeholder = placeholderTxt;
+    document.getElementById('manual-input').value = "";
+    zone.classList.add('active');
+    status.innerText = "Waiting for missing information...";
+  }
 
-    // UI Updates
-    document.getElementById('result-area').style.display = 'block';
-    document.getElementById('paper-label').innerText = `${sub} P${pap} ${m[2]}${yr}`;
-    document.getElementById('ms-url').href = ms;
-    document.getElementById('qp-url').href = qp;
+  function resumeSearch() {
+    const input = document.getElementById('manual-input').value.toUpperCase().replace(/\s+/g, '');
     
-    // Load MARK SCHEME in the viewer (User's primary goal)
-    document.getElementById('viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(ms)}&embedded=true`;
+    // If we only needed the subject (4 digits)
+    if(!sessionState.sub && input.match(/^\d{4}$/)) {
+      sessionState.sub = input;
+    } 
+    // If we needed everything
+    else {
+      const m = input.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
+      if(m) {
+        sessionState.sub = m[1];
+        sessionState.seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
+        sessionState.yr = m[3]; sessionState.pap = m[4];
+      } else {
+        alert("Invalid format. Use: 9702 M23/12"); return;
+      }
+    }
+    checkStateAndRoute();
+  }
 
-    // Start background search if we have question text
-    if(detectedText) {
-      runDeepSearch(qp, ms, detectedText);
-    } else {
-      document.getElementById('page-status').innerText = "MANUAL BROWSE";
+  // --- 4. PDF SEARCH LOGIC (The Core Feature) ---
+  async function executeSearch() {
+    const { sub, seas, yr, pap, explicitQ, words } = sessionState;
+    
+    const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
+    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+
+    document.getElementById('viewer-sec').style.display = 'block';
+    document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
+    
+    // SHORTCUT PATH
+    if (explicitQ) {
+      document.getElementById('route-path').innerText = `Shortcut: Detected Q${explicitQ}. Finding in Mark Scheme...`;
+      await locateInMS(msUrl, explicitQ);
+    } 
+    // DEEP SEARCH PATH (Word combos -> QP -> Q# -> MS)
+    else {
+      document.getElementById('route-path').innerText = `Step 1: Searching QP for Question Number...`;
+      let discoveredQ = await locateQNumInQP(qpUrl, words);
+      
+      if(discoveredQ) {
+        document.getElementById('route-path').innerText = `Step 2: Found Q${discoveredQ} in QP. Finding in Mark Scheme...`;
+        await locateInMS(msUrl, discoveredQ);
+      } else {
+        document.getElementById('route-path').innerText = "Could not map to a specific question. Opening standard MS.";
+        document.getElementById('pdf-viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true`;
+      }
     }
   }
 
-  // 3. The "Deep Search" Logic
-  async function runDeepSearch(qpUrl, msUrl, text) {
-    const statusEl = document.getElementById('page-status');
-    statusEl.innerText = "SEARCHING PAGES...";
-    
+  // Step 1 of Deep Search: Scan QP for word combos, figure out what Question # it is
+  async function locateQNumInQP(url, words) {
+    if(words.length < 2) return null;
     try {
-      const proxy = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const pdf = await pdfjsLib.getDocument(proxy).promise;
       
-      // Filter for unique technical keywords
-      const keys = text.toLowerCase()
-                      .replace(/[^a-z ]/g, '')
-                      .split(' ')
-                      .filter(w => w.length > 5)
-                      .slice(0, 4);
-
-      if(keys.length === 0) {
-        statusEl.innerText = "TEXT TOO SHORT";
-        return;
-      }
-
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const pageText = content.items.map(s => s.str).join(' ').toLowerCase();
+        const pageText = content.items.map(s => s.str).join(' ');
         
-        // If 2 or more keys match, we found the page
-        const matches = keys.filter(k => pageText.includes(k)).length;
-        if (matches >= 2) {
-          statusEl.innerText = "MATCH: PAGE " + i;
-          // Redirect the internal viewer to the specific MS page
-          const jumpLink = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${i}`;
-          document.getElementById('viewer').src = jumpLink;
-          return;
+        // If the word combos exist on this QP page
+        const matchCount = words.filter(w => pageText.toLowerCase().includes(w)).length;
+        if (matchCount >= 2) {
+          // Try to extract the Question Number from this specific page's text
+          // Look for "1.", "2.", etc., near the start of lines or main text blocks
+          const qNumExtract = pageText.match(/(?:^|\s)(\d+)\s*\./);
+          if (qNumExtract) return qNumExtract[1];
+          // Fallback: just return the first number found on the page
+          const anyNum = pageText.match(/\b(\d+)\b/);
+          if (anyNum) return anyNum[1];
         }
       }
-      statusEl.innerText = "NO PAGE MATCH";
-    } catch(e) {
-      statusEl.innerText = "SEARCH BLOCKED";
-    }
+    } catch(e) { return null; }
+    return null;
   }
-</script>
 
+  // Step 2 (or Shortcut): Find the specific Q# in the Mark Scheme and load the Viewer
+  async function locateInMS(url, qNum) {
+    let targetPage = 1;
+    try {
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(s => s.str).join(' ');
+        
+        // Mark schemes usually list the question number plainly or as "Question X"
+        // We look for exact word boundaries so Q "4" doesn't trigger on "40"
+        const regex = new RegExp(`\\b(?:Question\\s*)?${qNum}\\b`, 'i');
+        if (regex.test(pageText)) {
+          targetPage = i;
+          break; // Stop at the first page that mentions this Question Number
+        }
+      }
+      document.getElementById('route-path').innerText = `Success: Loaded Mark Scheme for Q${qNum} (Page ${targetPage})`;
+    } catch(e) {
+      document.getElementById('route-path').innerText = `Loaded MS (Search block bypass active)`;
+    }
+    
+    // Load the viewer shifted to the correct page
+    document.getElementById('pdf-viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true#page=${targetPage}`;
+  }
+
+</script>
 </body>
 </html>

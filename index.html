@@ -13,34 +13,24 @@
     body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Horizontal Camera Box */
     #media-wrap {
-      width: 100%;
-      aspect-ratio: 16 / 9; /* Forces Horizontal Dimension */
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 15px;
-      border: 1px solid rgba(255,255,255,0.1);
-      position: relative;
+      width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden;
+      margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); position: relative;
     }
     video, #captured-img { width: 100%; height: 100%; object-fit: cover; }
     #captured-img { display: none; }
 
-    /* Dynamic Input Box */
     .input-zone { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid transparent; transition: 0.3s; display: none; }
     .input-zone.active { display: block; border-color: var(--warn); }
     .input-zone label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--warn); display: block; margin-bottom: 5px; }
     input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: rgba(15,23,42,0.8); color: white; text-align: center; font-size: 1rem; outline: none; }
 
-    /* Buttons */
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
     .btn { padding: 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; text-align: center; font-size: 0.85rem; }
     .btn-cam { background: transparent; border: 1.5px solid white; color: white; }
     .btn-scan { background: var(--accent); color: #000; grid-column: span 2; font-size: 1rem; }
     .btn:active { transform: scale(0.98); }
 
-    /* Status & Output */
     #status-text { text-align: center; font-size: 0.8rem; margin-bottom: 15px; min-height: 20px; color: #94a3b8; }
     .viewer-sec { display: none; background: var(--card); padding: 15px; border-radius: 12px; margin-top: 10px; }
     .paper-info { font-weight: 700; font-size: 1.1rem; text-align: center; color: var(--accent); margin-bottom: 5px; }
@@ -75,11 +65,10 @@
   <div id="status-text">Awaiting input...</div>
 
   <div class="viewer-sec" id="viewer-sec">
-    <div class="paper-info" id="paper-id">9702 | M23 | 12</div>
+    <div class="paper-info" id="paper-id">--</div>
     <div class="route-info" id="route-path">Routing...</div>
     <iframe id="pdf-viewer"></iframe>
   </div>
-
 </div>
 <canvas id="canvas"></canvas>
 
@@ -93,11 +82,8 @@
   
   let stream = null;
   let useVideo = true;
-  
-  // State Machine Variables
   let sessionState = { sub: '', seas: '', yr: '', pap: '', explicitQ: null, words: [] };
 
-  // --- 1. MEDIA CONTROLS ---
   async function startCamera() {
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     try {
@@ -114,7 +100,6 @@
     if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   }
 
-  // --- 2. OCR & PARSING ---
   async function captureAndAnalyze() {
     status.innerText = "Scanning photo (OCR)...";
     document.getElementById('scan-btn').disabled = true;
@@ -131,11 +116,10 @@
       const worker = await Tesseract.createWorker('eng');
       const { data: { text } } = await worker.recognize(source);
       await worker.terminate();
-      
       parseOCRText(text);
     } catch(e) {
       status.innerText = "OCR Failed. Please enter manually.";
-      askForManual("Full Code (e.g. 9702 M23/12)", "9702 M23/12");
+      askForManual("Full Code (e.g. 9702 M23/12/Q1)", "9702 M23/12/Q1");
     }
     document.getElementById('scan-btn').disabled = false;
   }
@@ -143,40 +127,41 @@
   function parseOCRText(text) {
     status.innerText = "Parsing data...";
     const clean = text.toUpperCase();
+    const noSpaces = clean.replace(/\s+/g, '');
     
-    // 1. Find Paper Code: (Optional 4 digits) + (M/S/W/F) + (2 digits) / (1-2 digits)
-    const codeMatch = clean.replace(/\s+/g, '').match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/);
+    // THE FIX: Now detects glued formats like M23/12/Q1 natively
+    const codeMatch = noSpaces.match(/(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
+
     if(codeMatch) {
       sessionState.sub = codeMatch[1] || "";
       sessionState.seas = (codeMatch[2]==='M'||codeMatch[2]==='F')?'m':(codeMatch[2]==='S'?'s':'w');
       sessionState.yr = codeMatch[3];
       sessionState.pap = codeMatch[4];
+      if(codeMatch[5]) {
+        sessionState.explicitQ = codeMatch[5]; // Extracts '1' directly from the string
+      }
     }
 
-    // 2. Find Explicit Question Number (e.g., "Question 4", "Q4", "4.")
-    const qMatch = clean.match(/(?:QUESTION|Q)\s*(\d+)/i) || text.match(/(?:^|\n)\s*(\d+)\s*\.\s*[A-Z]/);
-    if(qMatch) sessionState.explicitQ = qMatch[1];
+    // Fallback if Q number is separated by spaces (e.g., "Question 1")
+    if (!sessionState.explicitQ) {
+      const qMatch = clean.match(/(?:QUESTION|Q)\s*(\d+)/i) || text.match(/(?:^|\n)\s*(\d+)\s*\.\s*[A-Z]/);
+      if(qMatch) sessionState.explicitQ = qMatch[1];
+    }
 
-    // 3. Extract unique word combinations for deep search (Fallback)
     sessionState.words = text.toLowerCase().replace(/[^a-z ]/g, '').split(' ').filter(w => w.length > 5).slice(0, 4);
-
     checkStateAndRoute();
   }
 
-  // --- 3. ROUTING & UI PROMPTS ---
   function checkStateAndRoute() {
-    // If no paper details found at all
     if(!sessionState.seas || !sessionState.yr || !sessionState.pap) {
-      askForManual("Code not found. Enter Full Code:", "e.g. 9702 M23/12");
+      askForManual("Code not found. Enter Full Code:", "e.g. 9702 M23/12/Q1");
       return;
     }
-    // If paper details found, but NO subject
     if(!sessionState.sub) {
-      askForManual(`Found ${sessionState.seas.toUpperCase()}${sessionState.yr}/P${sessionState.pap}. Enter Subject Code:`, "e.g. 9702");
+      let ext = sessionState.explicitQ ? `/Q${sessionState.explicitQ}` : "";
+      askForManual(`Found ${sessionState.seas.toUpperCase()}${sessionState.yr}/P${sessionState.pap}${ext}. Enter Subject Code:`, "e.g. 9702");
       return;
     }
-
-    // All Good! Proceed to PDF logic
     document.getElementById('input-zone').classList.remove('active');
     document.getElementById('controls').style.display = 'none';
     executeSearch();
@@ -194,41 +179,35 @@
   function resumeSearch() {
     const input = document.getElementById('manual-input').value.toUpperCase().replace(/\s+/g, '');
     
-    // If we only needed the subject (4 digits)
     if(!sessionState.sub && input.match(/^\d{4}$/)) {
       sessionState.sub = input;
-    } 
-    // If we needed everything
-    else {
-      const m = input.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
+    } else {
+      // Manual input now also respects the /Q format
+      const m = input.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
       if(m) {
         sessionState.sub = m[1];
         sessionState.seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
         sessionState.yr = m[3]; sessionState.pap = m[4];
+        if(m[5]) sessionState.explicitQ = m[5];
       } else {
-        alert("Invalid format. Use: 9702 M23/12"); return;
+        alert("Invalid format. Use: 9702 M23/12 or 9702 M23/12/Q1"); return;
       }
     }
     checkStateAndRoute();
   }
 
-  // --- 4. PDF SEARCH LOGIC (The Core Feature) ---
   async function executeSearch() {
     const { sub, seas, yr, pap, explicitQ, words } = sessionState;
-    
     const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
 
     document.getElementById('viewer-sec').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
     
-    // SHORTCUT PATH
     if (explicitQ) {
       document.getElementById('route-path').innerText = `Shortcut: Detected Q${explicitQ}. Finding in Mark Scheme...`;
       await locateInMS(msUrl, explicitQ);
-    } 
-    // DEEP SEARCH PATH (Word combos -> QP -> Q# -> MS)
-    else {
+    } else {
       document.getElementById('route-path').innerText = `Step 1: Searching QP for Question Number...`;
       let discoveredQ = await locateQNumInQP(qpUrl, words);
       
@@ -242,26 +221,19 @@
     }
   }
 
-  // Step 1 of Deep Search: Scan QP for word combos, figure out what Question # it is
   async function locateQNumInQP(url, words) {
     if(words.length < 2) return null;
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const pdf = await pdfjsLib.getDocument(proxy).promise;
-      
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const pageText = content.items.map(s => s.str).join(' ');
         
-        // If the word combos exist on this QP page
-        const matchCount = words.filter(w => pageText.toLowerCase().includes(w)).length;
-        if (matchCount >= 2) {
-          // Try to extract the Question Number from this specific page's text
-          // Look for "1.", "2.", etc., near the start of lines or main text blocks
+        if (words.filter(w => pageText.toLowerCase().includes(w)).length >= 2) {
           const qNumExtract = pageText.match(/(?:^|\s)(\d+)\s*\./);
           if (qNumExtract) return qNumExtract[1];
-          // Fallback: just return the first number found on the page
           const anyNum = pageText.match(/\b(\d+)\b/);
           if (anyNum) return anyNum[1];
         }
@@ -270,35 +242,26 @@
     return null;
   }
 
-  // Step 2 (or Shortcut): Find the specific Q# in the Mark Scheme and load the Viewer
   async function locateInMS(url, qNum) {
     let targetPage = 1;
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
       const pdf = await pdfjsLib.getDocument(proxy).promise;
-      
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const pageText = content.items.map(s => s.str).join(' ');
         
-        // Mark schemes usually list the question number plainly or as "Question X"
-        // We look for exact word boundaries so Q "4" doesn't trigger on "40"
-        const regex = new RegExp(`\\b(?:Question\\s*)?${qNum}\\b`, 'i');
-        if (regex.test(pageText)) {
-          targetPage = i;
-          break; // Stop at the first page that mentions this Question Number
+        if (new RegExp(`\\b(?:Question\\s*)?${qNum}\\b`, 'i').test(pageText)) {
+          targetPage = i; break;
         }
       }
       document.getElementById('route-path').innerText = `Success: Loaded Mark Scheme for Q${qNum} (Page ${targetPage})`;
     } catch(e) {
       document.getElementById('route-path').innerText = `Loaded MS (Search block bypass active)`;
     }
-    
-    // Load the viewer shifted to the correct page
     document.getElementById('pdf-viewer').src = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true#page=${targetPage}`;
   }
-
 </script>
 </body>
 </html>

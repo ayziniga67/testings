@@ -3,49 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge Deep-View</title>
+  <title>Leakbridge - Smart Backup</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #1a2a3a; --card: #004d4d; --accent: #38bdf8; --text: #ffffff; }
+    :root { --bg: #1a2a3a; --card: #004d4d; --accent: #38bdf8; --error: #ff4b2b; --text: #ffffff; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     
-    .container { width: 100%; max-width: 500px; }
+    .container { width: 100%; max-width: 450px; }
     .header { text-align: center; margin-bottom: 15px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; letter-spacing: 2px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.2rem; letter-spacing: 2px; text-transform: uppercase; }
 
-    /* The Video/Image Box */
-    #media-view { width: 100%; height: 200px; background: #0b1926; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+    #media-view { width: 100%; height: 220px; background: #0b1926; border-radius: 15px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     video, #uploaded-img { width: 100%; height: 100%; object-fit: contain; display: none; }
 
+    .input-group { background: rgba(0, 77, 77, 0.4); padding: 15px; border-radius: 12px; border: 2px solid #ffffff; margin-bottom: 15px; transition: 0.3s; }
+    .input-group.need-manual { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
+    
+    label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; display: block; margin-bottom: 5px; }
     input[type="text"] {
-      width: 100%; padding: 12px; border-radius: 8px; border: 2px solid white; background: rgba(0, 77, 77, 0.3);
-      color: white; text-align: center; margin-bottom: 10px; outline: none;
+      width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(15, 23, 42, 0.5);
+      color: white; text-align: center; font-family: 'Outfit', sans-serif; font-size: 1rem; outline: none;
     }
 
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 12px; border-radius: 6px; border: 1.5px solid white; background: transparent; color: white; cursor: pointer; font-size: 0.8rem; }
-    .btn-scan { background: var(--accent); color: #000; border: none; font-weight: 700; }
+    .btn { padding: 14px; border-radius: 8px; border: 1.5px solid white; background: transparent; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+    .btn-main { background: var(--accent); color: #000; border: none; font-weight: 700; grid-column: span 2; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* The Output and Viewer */
-    .section { background: rgba(0, 77, 77, 0.4); padding: 15px; border-radius: 12px; border: 2px solid #ffffff; margin-bottom: 15px; }
-    #status-bar { height: 3px; background: var(--accent); width: 0%; transition: 0.3s; margin-bottom: 10px; }
+    #status { font-size: 0.8rem; text-align: center; margin-bottom: 10px; min-height: 1.2rem; color: var(--accent); }
     
-    #pdf-viewer-wrap { width: 100%; height: 400px; display: none; margin-top: 10px; border-radius: 8px; overflow: hidden; background: white; }
+    #viewer-sec { display: none; margin-top: 10px; }
+    .pdf-frame-wrap { width: 100%; height: 450px; background: white; border-radius: 12px; overflow: hidden; margin-top: 10px; }
     iframe { width: 100%; height: 100%; border: none; }
-
-    .result-links { display: flex; gap: 5px; margin-top: 10px; }
-    .result-links a { flex: 1; background: white; color: #004d4d; padding: 8px; text-align: center; text-decoration: none; font-weight: 700; border-radius: 4px; font-size: 0.75rem; }
+    
+    .links-row { display: flex; gap: 8px; margin-top: 10px; }
+    .links-row a { flex: 1; background: white; color: #004d4d; padding: 12px; text-align: center; text-decoration: none; font-weight: 800; border-radius: 6px; font-size: 0.8rem; }
   </style>
 </head>
 <body>
 
   <div class="container">
     <div class="header">
-      <h1>LEAKBRIDGE DEEP-VIEW</h1>
-      <p style="font-size: 0.6rem; opacity: 0.5;">Smart Page Detection</p>
+      <h1>Leakbridge v3</h1>
     </div>
 
     <div id="media-view">
@@ -53,112 +55,129 @@
       <img id="uploaded-img">
     </div>
 
-    <input type="text" id="manual-sub" placeholder="Subject Code (9702, 0580...)">
-
-    <div class="btn-row">
-      <button class="btn" onclick="openCam()">Camera</button>
-      <label class="btn" style="text-align:center;">Upload<input type="file" hidden onchange="handleFile(event)"></label>
-      <button class="btn btn-scan" id="main-btn" style="grid-column: span 2;" onclick="startDeepScan()">CAPTURE & ANALYZE</button>
+    <div id="input-box" class="input-group">
+      <label id="input-label">Subject & Paper Code</label>
+      <input type="text" id="manual-code" placeholder="e.g. 9702 M23/12">
     </div>
 
-    <div id="status-bar"></div>
+    <div id="status">Ready for scan...</div>
 
-    <div class="section" id="output-sec" style="display:none;">
+    <div class="btn-row">
+      <button class="btn" onclick="openCam()">Open Camera</button>
+      <label class="btn" style="text-align:center;">Upload File<input type="file" hidden onchange="handleFile(event)"></label>
+      <button class="btn btn-main" id="scan-btn" onclick="startProcess()">CAPTURE & FIND PAPER</button>
+    </div>
+
+    <div id="viewer-sec">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="paper-id" style="font-weight:600; font-size:0.9rem;">--</span>
-        <span id="page-hint" style="color:var(--accent); font-weight:bold; font-size:0.8rem;"></span>
+        <span id="found-id" style="font-weight:600;"></span>
+        <span id="page-search-status" style="font-size:0.8rem; color:var(--accent);">Searching page...</span>
       </div>
-      
-      <div class="result-links">
-        <a id="ms-link" target="_blank">MS LINK</a>
-        <a id="qp-link" target="_blank">QP LINK</a>
+      <div class="links-row">
+        <a id="ms-url" target="_blank">MARK SCHEME</a>
+        <a id="qp-url" target="_blank">QUESTION PAPER</a>
       </div>
-
-      <div id="pdf-viewer-wrap">
+      <div class="pdf-frame-wrap">
         <iframe id="pdf-frame"></iframe>
       </div>
     </div>
   </div>
 
-  <canvas id="canvas" style="display:none;"></canvas>
-
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   const video = document.getElementById('video');
   const img = document.getElementById('uploaded-img');
-  const frameWrap = document.getElementById('pdf-viewer-wrap');
   const frame = document.getElementById('pdf-frame');
-  const bar = document.getElementById('status-bar');
-
+  const status = document.getElementById('status');
+  const inputGroup = document.getElementById('input-box');
+  const manualInput = document.getElementById('manual-code');
+  
   let currentMode = 'none';
 
-  // 1. Camera / File Handling
-  async function openCam() {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = s; video.style.display = 'block'; img.style.display = 'none';
-    currentMode = 'camera';
+  function openCam() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(s => {
+      video.srcObject = s; video.style.display = 'block'; img.style.display = 'none';
+      currentMode = 'camera'; status.innerText = "Camera Active";
+    });
   }
 
   function handleFile(e) {
-    const file = e.target.files[0];
-    if (file) {
-      img.src = URL.createObjectURL(file);
+    if (e.target.files[0]) {
+      img.src = URL.createObjectURL(e.target.files[0]);
       img.style.display = 'block'; video.style.display = 'none';
-      currentMode = 'image';
+      currentMode = 'image'; status.innerText = "Image Loaded";
     }
   }
 
-  // 2. The Main Action
-  async function startDeepScan() {
-    bar.style.width = "20%";
-    const btn = document.getElementById('main-btn');
-    btn.innerText = "READING TEXT...";
+  async function startProcess() {
+    const btn = document.getElementById('scan-btn');
     btn.disabled = true;
+    status.innerText = "OCR: Analyzing Image...";
+    inputGroup.classList.remove('need-manual');
 
-    // Use Tesseract to get the text
-    const source = currentMode === 'image' ? img : video;
-    const worker = await Tesseract.createWorker('eng');
-    const { data: { text } } = await worker.recognize(source);
-    await worker.terminate();
+    // 1. OCR Step
+    let text = "";
+    try {
+      const source = currentMode === 'image' ? img : video;
+      const worker = await Tesseract.createWorker('eng');
+      const result = await worker.recognize(source);
+      text = result.data.text;
+      await worker.terminate();
+    } catch(e) { status.innerText = "OCR Failed. Use Manual Input."; }
 
-    btn.innerText = "SEARCHING PDF...";
-    bar.style.width = "50%";
-    
-    // Process using your regex logic
-    const sub = document.getElementById('manual-sub').value || "9702";
-    const clean = text.toUpperCase().replace(/\s+/g, '');
-    const m = clean.match(/([FMSW])(\d{2})\/(\d{1,2})/);
+    // 2. Logic Step
+    const cleanText = text.toUpperCase().replace(/\s+/g, '');
+    const m = cleanText.match(/(\d{4})?.*?([FMSW])(\d{2})\/(\d{1,2})/); 
+    // Captures: 1:Subject(optional), 2:Session, 3:Year, 4:Paper/Var
+
+    let sub = "", seas = "", yr = "", pap = "";
 
     if (m) {
-      const seas = (m[1]==='M'||m[1]==='F')?'m':(m[1]==='S'?'s':'w');
-      const yr = m[2]; const pap = m[3];
-      const qp = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
-      const ms = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+      sub = m[1] || manualInput.value.split(' ')[0];
+      seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
+      yr = m[3]; 
+      pap = m[4];
+    } else if (manualInput.value.length > 5) {
+      // Manual Backup Logic (e.g. "9702 M23/12")
+      const man = manualInput.value.toUpperCase().replace(/\s+/g, '');
+      const m2 = man.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})/);
+      if (m2) {
+        sub = m2[1]; seas = (m2[2]==='M'||m2[2]==='F')?'m':(m2[2]==='S'?'s':'w');
+        yr = m2[3]; pap = m2[4];
+      }
+    }
 
-      // Show the UI
-      document.getElementById('output-sec').style.display = 'block';
-      document.getElementById('paper-id').innerText = `${sub} | ${m[1]}${yr} | P${pap}`;
-      document.getElementById('ms-link').href = ms;
-      document.getElementById('qp-link').href = qp;
-
-      // Automatically open PDF in viewer
-      frameWrap.style.display = 'block';
-      // We use Google Docs viewer to bypass frame-blocking (X-Frame-Options)
-      frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(qp)}&embedded=true`;
-
-      // Run background page search
-      searchPage(qp, text);
+    if (sub && seas && yr && pap) {
+      status.innerText = "Paper Found!";
+      executeFinding(sub, seas, yr, pap, text);
     } else {
-      alert("No paper code (like M23/12) found.");
+      status.innerText = "Code NOT detected. Enter manually below.";
+      inputGroup.classList.add('need-manual');
+      manualInput.focus();
       btn.disabled = false;
-      btn.innerText = "CAPTURE & ANALYZE";
     }
   }
 
-  // 3. Background Scanning (Doesn't block the UI)
-  async function searchPage(url, ocrText) {
-    const hint = document.getElementById('page-hint');
-    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  function executeFinding(sub, seas, yr, pap, fullOcrText) {
+    const qp = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
+    const ms = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+
+    document.getElementById('viewer-sec').style.display = 'block';
+    document.getElementById('found-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
+    document.getElementById('ms-url').href = ms;
+    document.getElementById('qp-url').href = qp;
+
+    // Load PDF Viewer
+    frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(qp)}&embedded=true`;
+
+    // Deep Search for Page
+    searchPageNum(qp, ms, fullOcrText);
+    document.getElementById('scan-btn').disabled = false;
+  }
+
+  async function searchPageNum(qpUrl, msUrl, ocrText) {
+    const pageStatus = document.getElementById('page-search-status');
+    const proxy = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
     
     try {
       const pdf = await pdfjsLib.getDocument(proxy).promise;
@@ -166,23 +185,17 @@
       
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items.map(it => it.str).join(' ').toLowerCase();
+        const textContent = await page.getTextContent();
+        const contentStr = textContent.items.map(it => it.str).join(' ').toLowerCase();
         
-        if (keywords.every(k => pageText.includes(k))) {
-          hint.innerText = `Found on Page ${i}`;
-          bar.style.width = "100%";
-          document.getElementById('main-btn').innerText = "DONE!";
+        if (keywords.every(k => contentStr.includes(k))) {
+          pageStatus.innerText = `Matched Page ${i}`;
+          document.getElementById('ms-url').href = `${msUrl}#page=${i}`;
           return;
         }
       }
-      hint.innerText = "Page not detected";
-    } catch (e) {
-      hint.innerText = "PDF Protected";
-    }
-    bar.style.width = "100%";
-    document.getElementById('main-btn').disabled = false;
-    document.getElementById('main-btn').innerText = "RE-SCAN";
+      pageStatus.innerText = "Page not mapped.";
+    } catch (e) { pageStatus.innerText = "Deep search unavailable."; }
   }
 </script>
 </body>

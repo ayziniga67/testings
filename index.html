@@ -199,8 +199,6 @@
     const resultEl = document.getElementById('result-text');
     const subjectEl = document.getElementById('subject-display');
     const pdfContainer = document.getElementById('pdf-container');
-    const msLink = document.getElementById('ms-link');
-    const qpLink = document.getElementById('qp-link');
     const mainBtn = document.getElementById('main-btn');
     const camBtn = document.getElementById('cam-btn');
     const aimBox = document.getElementById('aim-box');
@@ -216,18 +214,19 @@
       await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
     }
 
-    // --- REPLACED LOGIC START ---
     function parseCode(text) {
       const manualSub = document.getElementById('manual-sub').value.trim();
-      // Keep underscores for the strict regex, but clean other noise
+      // Keep slashes for the strict regex, clean other junk
       const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '').trim();
       
       let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
 
-      // --- 1. THE "STRICT" SUITE ---
+      // --- 1. THE "STRICT" SUITE (FIXED FOR OLD TEMPLATES) ---
       const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
       const mShort = clean.match(/([MSW])\s*(\d{2})\s*(?:QP|MS)\s*(\d)(\d)?/);
-      const mSlash = clean.match(/(\d{4})?\/?\s*([1-8])([1-6])?\/?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\/?\s*(?:20)?(\d{2})/);
+      
+      // FIXED mSlash: handles 9709/12/M/J/22 and similar slash formats
+      const mSlash = clean.match(/(\d{4})?[\s/]*(\d)([\d])?[\s/]+(M[\s/]*J|O[\s/]*N|F[\s/]*M|S|W|M)[\s/]*(?:20)?(\d{2})/);
 
       if (mUnder || mShort || mSlash) {
         if (mUnder) {
@@ -245,16 +244,15 @@
           if (!sub && mSlash[1]) sub = mSlash[1];
           pap = mSlash[2];
           varnt = mSlash[3] || "";
-          let sStr = mSlash[4].replace(/\s/g, '');
+          let sStr = mSlash[4].replace(/[\s/]/g, ''); // Clean M/J to MJ
           yr = mSlash[5];
           seas = (sStr==='MJ'||sStr==='S')?'s':(sStr==='ON'||sStr==='W'?'w':'m');
         }
         
-        // If we hit a strict match, go straight to building the link
         finalizeScan(sub, seas, yr, pap, varnt);
       } 
       else {
-        // --- 2. THE "SMART" FALLBACK ---
+        // --- 2. THE "SMART" FALLBACK (UNCHANGED) ---
         runSmartFallback(clean, sub);
       }
     }
@@ -263,18 +261,15 @@
       let pap = "", varnt = "", seas = "", yr = "";
       const smartClean = clean.replace(/[/_]/g, ' ').replace(/\s+/g, ' ');
 
-      // A. Subject
       if (!sub) {
         let subMatch = smartClean.match(/\b([0789]\d{3})\b/);
         sub = subMatch ? subMatch[1] : "9709";
       }
 
-      // B. Session
       if (/\b(M\s*J|S)\b/.test(smartClean)) seas = 's';
       else if (/\b(O\s*N|W)\b/.test(smartClean)) seas = 'w';
       else if (/\b(F\s*M|M)\b/.test(smartClean)) seas = 'm';
 
-      // C. Year
       let fullYear = smartClean.match(/\b20(\d{2})\b/);
       if (fullYear) yr = fullYear[1];
       else {
@@ -282,7 +277,6 @@
         yr = yrAfterSeas ? yrAfterSeas[1] : "";
       }
 
-      // D. Paper/Variant
       let qpMatch = smartClean.match(/(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
       if (qpMatch) {
         pap = qpMatch[1][0];
@@ -308,8 +302,6 @@
       const yrInt = parseInt(yr);
       const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
       const fullYearStr = (yrInt > 50 ? "19" : "20") + yr;
-
-      // The 2010 Variant Rule
       let finalVarnt = (yrInt < 10) ? "" : (varnt || "1");
 
       const resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYearStr}`;
@@ -321,54 +313,36 @@
       const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
       const qpUrlPart = `${sub}_${seas}${yr}_qp_${fileSuffix}`;
       
-      const msLinkLocal = document.getElementById('ms-link');
-      const qpLinkLocal = document.getElementById('qp-link');
-      msLinkLocal.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
-      qpLinkLocal.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
+      document.getElementById('ms-link').href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
+      document.getElementById('qp-link').href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
       
       document.getElementById('pdf-container').style.display = 'flex';
-      // Use the local autoCopy variable
       if(autoCopy) navigator.clipboard.writeText(resText);
     }
-    // --- REPLACED LOGIC END ---
 
     async function toggleCamera() {
       if (isCameraOn) {
         if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = 'none';
-        aimBox.style.display = 'none';
-        camBtn.textContent = "Open Camera";
-        mainBtn.textContent = "Capture & Scan";
-        isCameraOn = false;
+        video.style.display = 'none'; aimBox.style.display = 'none';
+        camBtn.textContent = "Open Camera"; isCameraOn = false;
         currentMode = (uploadedImg.style.display === 'block') ? 'image' : 'none';
       } else {
         await initWorker();
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-          video.srcObject = stream;
-          video.style.display = 'block';
-          uploadedImg.style.display = 'none';
-          aimBox.style.display = 'block';
-          camBtn.textContent = "Close Camera";
-          isCameraOn = true;
-          currentMode = 'camera';
-          if(video.paused) video.play();
+          video.srcObject = stream; video.style.display = 'block';
+          uploadedImg.style.display = 'none'; aimBox.style.display = 'block';
+          camBtn.textContent = "Close Camera"; isCameraOn = true;
+          currentMode = 'camera'; if(video.paused) video.play();
         } catch(e) { alert("Camera Access Denied"); }
       }
     }
 
     async function scan() {
       if (currentMode === 'none') { alert("Open camera or upload image first"); return; }
-      if (currentMode === 'camera' && video.paused) {
-        video.play();
-        mainBtn.textContent = "Capture & Scan";
-        bar.style.width = '0%';
-        return;
-      }
       await initWorker();
       if (currentMode === 'camera') video.pause(); 
-      mainBtn.disabled = true;
-      mainBtn.textContent = "Scanning...";
+      mainBtn.disabled = true; mainBtn.textContent = "Scanning...";
       
       const source = currentMode === 'image' ? uploadedImg : video;
       let sw = source.naturalWidth || source.videoWidth;
@@ -390,7 +364,7 @@
       worker.recognize(canvas).then(({ data: { text } }) => {
         parseCode(text);
         mainBtn.disabled = false;
-        mainBtn.textContent = currentMode === 'camera' ? "Resume Camera" : "Scan Image";
+        mainBtn.textContent = currentMode === 'camera' ? "Capture & Scan" : "Scan Image";
         bar.style.width = '0%';
       });
     }
@@ -398,11 +372,7 @@
     async function handleManualPaste() {
       try {
         const text = await navigator.clipboard.readText();
-        if (text) {
-          bar.style.width = '100%';
-          parseCode(text);
-          setTimeout(() => { bar.style.width = '0%'; }, 600);
-        }
+        if (text) parseCode(text);
       } catch (e) { alert("Enable clipboard permissions"); }
     }
 
@@ -414,21 +384,14 @@
 
     function handleFileUpload(event) {
       if (event.target.files[0]) {
-        const url = URL.createObjectURL(event.target.files[0]);
-        uploadedImg.src = url;
+        uploadedImg.src = URL.createObjectURL(event.target.files[0]);
         uploadedImg.onload = () => {
           if (isCameraOn) toggleCamera();
-          video.style.display = 'none';
-          uploadedImg.style.display = 'block';
-          currentMode = 'image';
-          mainBtn.textContent = "Scan Image";
+          video.style.display = 'none'; uploadedImg.style.display = 'block';
+          currentMode = 'image'; mainBtn.textContent = "Scan Image";
         }
       }
     }
-
-    document.getElementById('manual-sub').addEventListener('input', (e) => {
-      if (e.target.value.length > 5) parseCode(e.target.value);
-    });
   </script>
 </body>
 </html>

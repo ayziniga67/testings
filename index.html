@@ -3,45 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge Pro - Speed Edition</title>
+  <title>Leakbridge - 9702 Edition</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --warn: #facc15; --text: #f8fafc; }
+    :root { --bg: #0b0f1a; --card: #161b2e; --accent: #38bdf8; --text: #f8fafc; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
-    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 15px; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Viewport & Progress Overlay */
-    #viewport-container { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
+    /* Viewport & Progress */
+    #viewport-container { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 12px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
     
     #overlay { 
       position: absolute; top:0; left:0; width:100%; height:100%; 
-      background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; 
-      justify-content: center; align-items: center; z-index: 10;
+      background: rgba(11, 15, 26, 0.95); display: none; flex-direction: column; 
+      justify-content: center; align-items: center; z-index: 100;
     }
-    .progress-container { width: 70%; height: 8px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
-    #progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.2s; }
-    #overlay-text { font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px; }
+    .progress-bar-bg { width: 70%; height: 6px; background: #2d3748; border-radius: 10px; margin-top: 15px; overflow: hidden; }
+    #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 
-    /* Inputs */
-    .input-zone { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid var(--warn); display: none; }
-    .input-zone.active { display: block; }
-    input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; margin: 10px 0; }
+    /* Buttons & Controls */
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .btn { padding: 12px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.8rem; }
+    .btn-main { background: var(--accent); color: #000; grid-column: span 2; font-size: 1rem; margin-bottom: 5px; }
+    .btn-alt { background: #1e293b; color: white; border: 1px solid #334155; }
+    .btn-off { background: #7f1d1d; color: white; }
 
-    /* Controls */
-    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
-    .btn-capture { background: var(--accent); color: #000; grid-column: span 2; font-size: 1.1rem; }
-    .btn-secondary { background: #334155; color: white; }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn:active { transform: scale(0.98); }
-
-    #log { text-align: center; font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; height: 1.2rem; }
-    .viewer-sec { display: none; width: 100%; }
-    iframe { width: 100%; height: 500px; border-radius: 12px; background: white; border: none; margin-top: 10px; }
+    /* Viewer */
+    .viewer-area { display: none; width: 100%; margin-top: 10px; }
+    iframe { width: 100%; height: 550px; border-radius: 10px; background: white; border: none; }
+    #status-log { font-size: 0.75rem; color: #94a3b8; text-align: center; margin-bottom: 10px; height: 1rem; }
   </style>
 </head>
 <body>
@@ -52,33 +46,27 @@
     <canvas id="canvas" style="display:none;"></canvas>
     
     <div id="overlay">
-      <div id="overlay-text">ANALYZING...</div>
-      <div class="progress-container"><div id="progress-bar"></div></div>
-      <div id="sub-log" style="font-size: 0.6rem; color: #94a3b8; margin-top: 8px;">Preparing Engines</div>
+      <div style="font-weight:700; color:var(--accent);">SEARCHING DATABASE</div>
+      <div class="progress-bar-bg"><div id="progress-fill"></div></div>
+      <div id="step-label" style="font-size:0.6rem; margin-top:8px; opacity:0.7;">Initializing...</div>
     </div>
   </div>
 
-  <div id="log">Ready</div>
+  <div id="status-log">System Ready</div>
 
-  <div class="input-zone" id="input-zone">
-    <label id="prompt-label" style="font-size: 0.7rem; color: var(--warn); font-weight: 800;">MISSING DATA</label>
-    <input type="text" id="manual-field" placeholder="...">
-    <button class="btn btn-capture" onclick="resumeLogic()">CONTINUE</button>
+  <div class="btn-grid">
+    <button class="btn btn-main" onclick="captureAndStart()">CAPTURE & FIND MS</button>
+    <label class="btn btn-alt" style="text-align:center;">UPLOAD PHOTO<input type="file" hidden onchange="processFile(event)"></label>
+    <button class="btn btn-alt" onclick="initCamera()">OPEN CAMERA</button>
+    <button class="btn btn-off" onclick="killCamera()">CLOSE CAMERA</button>
   </div>
 
-  <div class="btn-row" id="main-btns">
-    <button class="btn btn-capture" id="cap-btn" onclick="takeSnapshot()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-secondary" onclick="startCam()">START CAMERA</button>
-    <button class="btn btn-danger" onclick="stopCam()">CLOSE CAMERA</button>
-    <label class="btn btn-secondary" style="text-align:center; grid-column: span 2;">UPLOAD PHOTO<input type="file" hidden onchange="handleFile(event)"></label>
-  </div>
-
-  <div class="viewer-sec" id="viewer-sec">
-    <div style="display:flex; justify-content:space-between; font-size: 0.8rem; font-weight: 600;">
-        <span id="paper-id" style="color:var(--accent);"></span>
-        <span id="page-jump-info"></span>
+  <div class="viewer-area" id="viewer-area">
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.8rem;">
+        <span id="paper-tag" style="color:var(--accent); font-weight:700;"></span>
+        <span id="page-tag" style="opacity:0.8;"></span>
     </div>
-    <iframe id="pdf-frame"></iframe>
+    <iframe id="ms-frame"></iframe>
   </div>
 </div>
 
@@ -88,187 +76,161 @@
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const overlay = document.getElementById('overlay');
-  const progBar = document.getElementById('progress-bar');
-  const subLog = document.getElementById('sub-log');
+  const progress = document.getElementById('progress-fill');
+  const stepLabel = document.getElementById('step-label');
   
   let stream = null;
-  let activeState = { sub: '', seas: '', yr: '', pap: '', q: '', words: [] };
+  let activeData = { sub: '9702', seas: '', yr: '', pap: '', q: '', words: [] };
 
-  async function startCam() {
-    if (stream) stopCam();
+  // --- 1. MEDIA MGMT ---
+  async function initCamera() {
     try {
+      if(stream) killCamera();
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 1280 } });
       video.srcObject = stream;
       video.style.display = 'block';
       canvas.style.display = 'none';
-      document.getElementById('log').innerText = "Camera Active";
-    } catch(e) { alert("Camera Error"); }
+      document.getElementById('status-log').innerText = "Camera Active";
+    } catch(e) { document.getElementById('status-log').innerText = "Camera Blocked"; }
   }
-  startCam(); // Start on load
+  initCamera(); // Auto-start
 
-  function stopCam() {
+  function killCamera() {
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
       video.style.display = 'none';
-      document.getElementById('log').innerText = "Camera Closed";
+      document.getElementById('status-log').innerText = "Camera Closed";
     }
   }
 
-  function updateProgress(percent, text) {
-    progBar.style.width = percent + "%";
-    subLog.innerText = text;
-  }
-
-  function handleFile(e) {
+  function processFile(e) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-          canvas.width = img.width; canvas.height = img.height;
-          canvas.getContext('2d').drawImage(img, 0,0);
-          video.style.display = 'none';
-          canvas.style.display = 'block';
-          runTwoPassScan();
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        video.style.display = 'none';
+        canvas.style.display = 'block';
+        startProcessing();
       };
-      img.src = URL.createObjectURL(e.target.files[0]);
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
   }
 
-  async function takeSnapshot() {
-    if (!stream) return alert("Open camera first!");
+  function captureAndStart() {
+    if(!stream) {
+        document.getElementById('status-log').innerText = "Open camera or upload first!";
+        return;
+    }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     video.style.display = 'none';
     canvas.style.display = 'block';
-    overlay.style.display = 'flex';
-    runTwoPassScan();
+    startProcessing();
   }
 
-  async function runTwoPassScan() {
-    updateProgress(10, "Initializing OCR...");
+  // --- 2. CORE LOGIC ---
+  async function startProcessing() {
+    overlay.style.display = 'flex';
+    updateUI(10, "Pass 1: OCR Extraction...");
+
     try {
-        const worker = await Tesseract.createWorker('eng');
-        updateProgress(30, "Reading Text...");
-        const { data: { text } } = await worker.recognize(canvas);
-        await worker.terminate();
+      const worker = await Tesseract.createWorker('eng');
+      const { data: { text } } = await worker.recognize(canvas);
+      await worker.terminate();
 
-        const clean = text.toUpperCase().replace(/\s+/g, '');
-        const codeMatch = clean.match(/(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
-        
-        if(codeMatch) {
-            activeState.sub = codeMatch[1] || "";
-            activeState.seas = (codeMatch[2]==='M'||codeMatch[2]==='F')?'m':(codeMatch[2]==='S'?'s':'w');
-            activeState.yr = codeMatch[3]; activeState.pap = codeMatch[4];
-            activeState.q = codeMatch[5] || "";
-        }
-        activeState.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+      const clean = text.toUpperCase().replace(/\s+/g, '');
+      // Hardcoded 9702 as default if (\d{4}) is missing
+      const match = clean.match(/(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/i);
 
-        if(!activeState.seas) {
-            showManual("Full Code Not Found", "e.g. 9702 M23/12/Q1");
-        } else if(!activeState.sub) {
-            showManual(`Detected Paper ${activeState.seas.toUpperCase()}${activeState.yr}/P${activeState.pap}`, "Enter 4-digit Subject Code");
-        } else {
-            startStageThree();
-        }
+      if (match) {
+        activeData.sub = match[1] || "9702"; // DEFAULT SUBJECT
+        activeData.seas = (match[2]==='M'||match[2]==='F')?'m':(match[2]==='S'?'s':'w');
+        activeData.yr = match[3];
+        activeData.pap = match[4];
+        activeData.q = match[5] || "";
+      } else {
+        throw new Error("No Code Found");
+      }
+
+      activeData.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+      
+      runPipeline();
     } catch(e) {
-        alert("Scan Failed. Use Manual Input.");
-        showManual("Scan Error", "Enter code manually");
+      alert("Could not read paper code. Please try a clearer photo.");
+      overlay.style.display = 'none';
+      video.style.display = 'block';
+      canvas.style.display = 'none';
     }
   }
 
-  function showManual(label, placeholder) {
-    overlay.style.display = 'none';
-    const zone = document.getElementById('input-zone');
-    document.getElementById('prompt-label').innerText = label;
-    document.getElementById('manual-field').placeholder = placeholder;
-    zone.classList.add('active');
-  }
-
-  function resumeLogic() {
-    const val = document.getElementById('manual-field').value.toUpperCase().replace(/\s+/g, '');
-    if(val.length === 4 && !isNaN(val)) {
-        activeState.sub = val;
-    } else {
-        const m = val.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
-        if(m) {
-            activeState.sub = m[1]; activeState.seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
-            activeState.yr = m[3]; activeState.pap = m[4]; activeState.q = m[5] || "";
-        }
-    }
-    document.getElementById('input-zone').classList.remove('active');
-    overlay.style.display = 'flex';
-    startStageThree();
-  }
-
-  async function startStageThree() {
-    const { sub, seas, yr, pap, q, words } = activeState;
+  async function runPipeline() {
+    const { sub, seas, yr, pap, q, words } = activeData;
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
     const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
 
-    document.getElementById('viewer-sec').style.display = 'block';
-    document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
+    document.getElementById('viewer-area').style.display = 'block';
+    document.getElementById('paper-tag').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
 
-    let targetQ = q;
+    let targetQuestion = q;
 
-    if(!targetQ && words.length > 0) {
-        updateProgress(50, "Searching Question Paper...");
-        targetQ = await findQFromQP(qpUrl, words);
+    // PASS 2: If Q wasn't in the code, check QP for word combos
+    if (!targetQuestion && words.length > 0) {
+      updateUI(40, "Pass 2: Mapping words to Q-Number...");
+      targetQuestion = await scanQP(qpUrl, words);
     }
 
-    updateProgress(80, "Finding Answer in MS...");
-    const finalPage = await jumpToMSPage(msUrl, targetQ || "1");
-    
-    updateProgress(100, "Done!");
+    // PASS 3: Find Q in Mark Scheme
+    updateUI(70, "Pass 3: Locating Answer in MS...");
+    const page = await scanMS(msUrl, targetQuestion || "1");
+
+    updateUI(100, "Success!");
     setTimeout(() => {
-        overlay.style.display = 'none';
-        document.getElementById('pdf-frame').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${finalPage}`;
-        document.getElementById('page-jump-info').innerText = `Jumped to Page ${finalPage}`;
-    }, 500);
+      overlay.style.display = 'none';
+      document.getElementById('ms-frame').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
+      document.getElementById('page-tag').innerText = `Jumped to Page ${page}`;
+    }, 400);
   }
 
-  // Optimized Scan with Progress Updates
-  async function findQFromQP(url, words) {
+  // --- 3. SCANNERS ---
+  async function scanQP(url, words) {
     try {
-        const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        const pdf = await pdfjsLib.getDocument(proxy).promise;
-        const total = pdf.numPages;
-        
-        for (let i = 1; i <= total; i++) {
-            updateProgress(50 + (i/total * 20), `Scanning QP Page ${i}/${total}`);
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            const text = content.items.map(s => s.str).join(' ').toLowerCase();
-            
-            if (words.slice(0,3).every(w => text.includes(w))) {
-                const match = text.match(/(?:^|\s)(\d+)\s*\./);
-                return match ? match[1] : null;
-            }
-            // Anti-freeze pause
-            await new Promise(r => setTimeout(r, 10));
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const txt = content.items.map(s => s.str).join(' ').toLowerCase();
+        if (words.slice(0, 3).every(w => txt.includes(w))) {
+          const m = txt.match(/(?:^|\s)(\d+)\s*\./);
+          return m ? m[1] : null;
         }
+      }
     } catch(e) { return null; }
   }
 
-  async function jumpToMSPage(url, qNum) {
-    let pageNum = 1;
+  async function scanMS(url, qNum) {
     try {
-        const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        const pdf = await pdfjsLib.getDocument(proxy).promise;
-        const total = pdf.numPages;
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const txt = content.items.map(s => s.str).join(' ');
+        if (new RegExp(`\\b${qNum}\\b`).test(txt)) return i;
+      }
+    } catch(e) { return 1; }
+    return 1;
+  }
 
-        for (let i = 1; i <= total; i++) {
-            updateProgress(80 + (i/total * 15), `Scanning MS Page ${i}/${total}`);
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            const text = content.items.map(s => s.str).join(' ');
-            
-            if (new RegExp(`\\b${qNum}\\b`).test(text)) {
-                pageNum = i; break;
-            }
-            await new Promise(r => setTimeout(r, 10));
-        }
-    } catch(e) {}
-    return pageNum;
+  function updateUI(pct, text) {
+    progress.style.width = pct + "%";
+    stepLabel.innerText = text;
   }
 </script>
 </body>
-</html>
+</html>            

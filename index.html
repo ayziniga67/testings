@@ -17,7 +17,7 @@
     #uploaded-img { object-fit: contain; background: #0b1926; }
     #aim-box { position: absolute; width: 85%; height: 60px; border: 2px solid #ffffff; border-radius: 10px; pointer-events: none; z-index: 5; display: none; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4); }
     .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 30px; width: 100%; max-width: 340px; }
-    .btn-action { background: transparent; color: white; border: 1.5px solid #ffffff; padding: 12px 0; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-align: center; transition: 0.2s; }
+    .btn-action { background: transparent; color: white; border: 1.5px solid #ffffff; padding: 12px 0; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-align: center; font-family: 'Outfit', sans-serif; transition: 0.2s; }
     .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
     .output-section { width: 100%; max-width: 340px; }
     .section-group { background: rgba(0, 77, 77, 0.4); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 3px solid #ffffff; position: relative; }
@@ -60,14 +60,14 @@
 
   <div class="output-section">
     <div class="section-group">
-      <span class="section-title">Result</span>
+      <span class="section-title">Scan Result</span>
       <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">Auto-Copy Off</button>
       <span style="font-size: 0.8rem; opacity: 0.5; display: block;" id="subject-display">Subject: ----</span>
       <span id="result-text">Ready...</span>
     </div>
 
     <div class="section-group">
-      <span class="section-title">PDF Links</span>
+      <span class="section-title">Available Papers</span>
       <div id="pdf-container" class="pdf-container">
         <a id="ms-link" class="pdf-btn" target="_blank">Mark Scheme</a>
         <a id="qp-link" class="pdf-btn" target="_blank">Question Paper</a>
@@ -79,23 +79,79 @@
   <canvas id="canvas"></canvas>
 
   <script>
-    let autoCopy = false;
-    let stream = null, worker = null, isCameraOn = false, currentMode = 'none';
-
-    const video = document.getElementById('video');
-    const uploadedImg = document.getElementById('uploaded-img');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const resultEl = document.getElementById('result-text');
-    const subjectEl = document.getElementById('subject-display');
-    const pdfContainer = document.getElementById('pdf-container');
-    const bar = document.getElementById('bar');
-    const mainBtn = document.getElementById('main-btn');
+    let autoCopy = false, stream = null, worker = null, isCameraOn = false, currentMode = 'none';
 
     async function initWorker() {
       if (worker) return;
-      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') document.getElementById('bar').style.width = (m.progress * 100) + '%'; } });
       await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+    }
+
+    function parseCode(text) {
+      const manualSub = document.getElementById('manual-sub').value.trim();
+      const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '').trim();
+      let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
+
+      // --- 1. THE "STRICT" SUITE ---
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      const mShort = clean.match(/([MSW])\s*(\d{2})\s*(?:QP|MS)\s*(\d)(\d)?/);
+      const mSlash = clean.match(/(\d{4})?\/?\s*([1-8])([1-6])?\/?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\/?\s*(?:20)?(\d{2})/);
+
+      if (mUnder || mShort || mSlash) {
+        document.getElementById('result-text').style.color = "#4ade80"; // Visual cue for strict match
+        if (mUnder) {
+          if (!sub && mUnder[1]) sub = mUnder[1];
+          seas = mUnder[2].toLowerCase(); yr = mUnder[3]; pap = mUnder[5]; varnt = mUnder[6] || "";
+        } else if (mShort) {
+          seas = mShort[1].toLowerCase(); yr = mShort[2]; pap = mShort[3]; varnt = mShort[4] || "";
+        } else if (mSlash) {
+          if (!sub && mSlash[1]) sub = mSlash[1];
+          pap = mSlash[2]; varnt = mSlash[3] || "";
+          let sStr = mSlash[4].replace(/\s/g, ''); yr = mSlash[5];
+          seas = (sStr==='MJ'||sStr==='S')?'s':(sStr==='ON'||sStr==='W'?'w':'m');
+        }
+        finalizeScan(sub || "9709", seas, yr, pap, varnt);
+      } 
+      else {
+        document.getElementById('result-text').style.color = "#ffffff";
+        runSmartFallback(clean, sub);
+      }
+    }
+
+    function runSmartFallback(clean, sub) {
+      let pap = "", varnt = "", seas = "", yr = "";
+      const smartClean = clean.replace(/[/_]/g, ' ').replace(/\s+/g, ' ');
+
+      if (!sub) {
+        let subMatch = smartClean.match(/\b([0789]\d{3})\b/);
+        sub = subMatch ? subMatch[1] : "9709";
+      }
+
+      if (/\b(M\s*J|S)\b/.test(smartClean)) seas = 's';
+      else if (/\b(O\s*N|W)\b/.test(smartClean)) seas = 'w';
+      else if (/\b(F\s*M|M)\b/.test(smartClean)) seas = 'm';
+
+      let fullYear = smartClean.match(/\b20(\d{2})\b/);
+      if (fullYear) yr = fullYear[1];
+      else {
+        let yrAfterSeas = smartClean.match(/(?:MJ|ON|FM|S|W|M)\s*(\d{2})\b/);
+        yr = yrAfterSeas ? yrAfterSeas[1] : "";
+      }
+
+      let qpMatch = smartClean.match(/(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
+      if (qpMatch) {
+        pap = qpMatch[1][0]; varnt = qpMatch[1].length > 1 ? qpMatch[1][1] : "";
+      } else {
+        let loose = smartClean.match(/\b\d{1,2}\b/g) || [];
+        loose = loose.filter(n => n !== yr);
+        if (loose.length > 0) { pap = loose[0][0]; varnt = loose[0].length > 1 ? loose[0][1] : ""; }
+      }
+
+      if (seas && yr && pap) finalizeScan(sub, seas, yr, pap, varnt);
+      else {
+        document.getElementById('result-text').textContent = "No valid code found";
+        document.getElementById('pdf-container').style.display = 'none';
+      }
     }
 
     function finalizeScan(sub, seas, yr, pap, varnt) {
@@ -105,8 +161,8 @@
       let finalVarnt = (yrInt < 10) ? "" : (varnt || "1");
 
       const resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYearStr}`;
-      subjectEl.textContent = `Subject: ${sub}`;
-      resultEl.textContent = resText;
+      document.getElementById('subject-display').textContent = `Subject: ${sub}`;
+      document.getElementById('result-text').textContent = resText;
 
       const fileSuffix = pap + finalVarnt;
       const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
@@ -115,85 +171,25 @@
       document.getElementById('ms-link').href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
       document.getElementById('qp-link').href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
       
-      pdfContainer.style.display = 'flex';
+      document.getElementById('pdf-container').style.display = 'flex';
       if(autoCopy) navigator.clipboard.writeText(resText);
-    }
-
-    function runSmartFallback(clean, manualSub) {
-      let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
-      const smart = clean.replace(/[/_]/g, ' ').replace(/\s+/g, ' ');
-
-      if (!sub) {
-        let m = smart.match(/\b([0789]\d{3})\b/);
-        sub = m ? m[1] : "9709";
-      }
-
-      if (/\b(M\s*J|S)\b/.test(smart)) seas = 's';
-      else if (/\b(O\s*N|W)\b/.test(smart)) seas = 'w';
-      else if (/\b(F\s*M|M)\b/.test(smart)) seas = 'm';
-
-      let yMatch = smart.match(/\b(?:20)?(\d{2})\b/g);
-      if (yMatch) yr = yMatch[yMatch.length-1]; // Usually the last 2 digits are the year
-
-      let pMatch = smart.match(/(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
-      if (pMatch) {
-        pap = pMatch[1][0]; varnt = pMatch[1].length > 1 ? pMatch[1][1] : "";
-      } else {
-        let loose = smart.match(/\b\d{1,2}\b/g) || [];
-        loose = loose.filter(n => n !== yr);
-        if (loose.length > 0) { pap = loose[0][0]; varnt = loose[0].length > 1 ? loose[0][1] : ""; }
-      }
-
-      if (seas && yr && pap) finalizeScan(sub, seas, yr, pap, varnt);
-      else resultEl.textContent = "Scan failed. Try manual paste.";
-    }
-
-    function parseCode(text) {
-      const manualSub = document.getElementById('manual-sub').value.trim();
-      const clean = text.toUpperCase().trim();
-      let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
-
-      // UPDATED REGEX: Handles 9709/12/M/J/22 and 9709_S22_QP_12
-      const mSlash = clean.match(/(\d{4})?[\s/]*(\d)([\d])?[\s/]*(M[\s/]*J|O[\s/]*N|F[\s/]*M|S|W|M)[\s/]*(?:20)?(\d{2})/);
-      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(?:QP|MS)_(\d)(\d)?/);
-
-      if (mSlash) {
-        resultEl.style.color = "#4ade80";
-        if (!sub && mSlash[1]) sub = mSlash[1];
-        pap = mSlash[2]; varnt = mSlash[3] || "";
-        let s = mSlash[4].replace(/[\s/]/g, '');
-        yr = mSlash[5];
-        seas = (s==='MJ'||s==='S')?'s':(s==='ON'||s==='W'?'w':'m');
-        finalizeScan(sub || "9709", seas, yr, pap, varnt);
-      } else if (mUnder) {
-        resultEl.style.color = "#4ade80";
-        if (!sub && mUnder[1]) sub = mUnder[1];
-        seas = mUnder[2].toLowerCase(); yr = mUnder[3]; pap = mUnder[4]; varnt = mUnder[5] || "";
-        finalizeScan(sub || "9709", seas, yr, pap, varnt);
-      } else {
-        resultEl.style.color = "white";
-        runSmartFallback(clean, sub);
-      }
     }
 
     async function scan() {
       if (currentMode === 'none') return;
-      if (currentMode === 'camera' && video.paused) { video.play(); return; }
       await initWorker();
-      if (currentMode === 'camera') video.pause();
+      const mainBtn = document.getElementById('main-btn');
+      if (currentMode === 'camera') document.getElementById('video').pause();
       mainBtn.disabled = true; mainBtn.textContent = "Scanning...";
       
-      const source = currentMode === 'image' ? uploadedImg : video;
-      let sx = 0, sy = 0, sw = source.naturalWidth || source.videoWidth, sh = source.naturalHeight || source.videoHeight;
+      const source = currentMode === 'image' ? document.getElementById('uploaded-img') : document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      let sw = source.naturalWidth || source.videoWidth, sh = source.naturalHeight || source.videoHeight;
       
-      if (currentMode === 'camera') {
-        const drawW = sh * (340/220); sx = (sw - drawW) / 2; sw = drawW;
-        const boxH = sh * (60/220); sy = (sh - boxH) / 2; sh = boxH;
-      }
-
-      canvas.width = sw * 2; canvas.height = sh * 2;
-      ctx.filter = 'grayscale(100%) contrast(300%)';
-      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      canvas.width = sw; canvas.height = sh;
+      ctx.filter = 'grayscale(100%) contrast(200%)';
+      ctx.drawImage(source, 0, 0);
       
       const { data: { text } } = await worker.recognize(canvas);
       parseCode(text);
@@ -201,6 +197,7 @@
     }
 
     async function toggleCamera() {
+      const video = document.getElementById('video');
       if (isCameraOn) {
         stream.getTracks().forEach(t => t.stop());
         video.style.display = 'none'; document.getElementById('aim-box').style.display = 'none';
@@ -211,14 +208,15 @@
           video.srcObject = stream; video.style.display = 'block';
           document.getElementById('aim-box').style.display = 'block';
           isCameraOn = true; currentMode = 'camera';
-        } catch(e) { alert("Camera error."); }
+        } catch(e) { alert("Camera Error"); }
       }
     }
 
     function handleFileUpload(e) {
       if (e.target.files[0]) {
-        uploadedImg.src = URL.createObjectURL(e.target.files[0]);
-        uploadedImg.onload = () => { video.style.display = 'none'; uploadedImg.style.display = 'block'; currentMode = 'image'; };
+        const img = document.getElementById('uploaded-img');
+        img.src = URL.createObjectURL(e.target.files[0]);
+        img.onload = () => { document.getElementById('video').style.display = 'none'; img.style.display = 'block'; currentMode = 'image'; };
       }
     }
 

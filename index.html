@@ -1,4 +1,247 @@
-    function parseCode(text) {
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>leakbridge papers</title>
+  <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #1a2a3a;
+      --card-bg: #004d4d;
+      --text-main: #ffffff;
+      --accent-teal: #006666;
+      --progress-bg: #4a5a6a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
+    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
+
+    #video-wrap {
+      width: 100%;
+      max-width: 340px;
+      height: 220px;
+      background: var(--card-bg);
+      border-radius: 15px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    video, #uploaded-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    #uploaded-img { object-fit: contain; background: #0b1926; }
+
+    #aim-box {
+      position: absolute;
+      width: 85%;
+      height: 60px;
+      border: 2px solid #ffffff;
+      border-radius: 10px;
+      pointer-events: none;
+      z-index: 5;
+      display: none;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 30px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .btn-action {
+      background: transparent;
+      color: white;
+      border: 1.5px solid #ffffff;
+      padding: 12px 0;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight:300;
+      cursor: pointer;
+      text-align: center;
+      font-family: 'Outfit', sans-serif;
+      transition: 0.2s;
+    }
+    .btn-action:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
+
+    .output-section { width: 100%; max-width: 340px; }
+
+    .section-group {
+      background: rgba(0, 77, 77, 0.4);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      border: 3px solid #ffffff;
+      position: relative;
+    }
+
+    .section-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.6;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .subject-sub { font-size: 0.8rem; opacity: 0.5; display: block; margin-bottom: 4px; }
+    #result-text { font-size: 1.1rem; font-weight: 600; display: block; line-height: 1.3; }
+
+    .pdf-container { display: none; gap: 8px; margin-top: 5px; }
+
+    .pdf-btn {
+      flex: 1;
+      background: #ffffff;
+      color: #004d4d;
+      padding: 12px 5px;
+      text-align: center;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.6rem;
+      cursor: pointer;
+      position: absolute;
+      right: 15px;
+      top: 12px;
+    }
+    .toggle-btn.off { opacity: 0.4; }
+
+    .progress-container { width: 100%; height: 2px; background: var(--progress-bg); margin-top: 10px; }
+    #bar { height: 100%; background: #ffffff; width: 0%; transition: width 0.2s; }
+
+    canvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Leakbridge Papers</h1>
+    <h2>crazy how the world works</h2>
+  </div>
+
+  <div id="video-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <img id="uploaded-img">
+    <div id="aim-box"></div>
+  </div>
+
+  <div style="width: 100%; max-width: 340px; margin-bottom: 15px;">
+    <input type="text" id="manual-sub" placeholder="Subject Code (e.g. 0580)" 
+           style="width: 100%; padding: 14px; border-radius: 8px; border: 2px solid #ffffff; background: rgba(0, 77, 77, 0.3); color: white; text-align: center; font-family: 'Outfit', sans-serif; font-size: 1rem; outline: none;">
+  </div>
+
+  <div class="action-row">
+    <button class="btn-action" id="cam-btn" onclick="toggleCamera()">Open Camera</button>
+    <button class="btn-action" id="main-btn" onclick="scan()">Capture & Scan</button>
+    <label class="btn-action" for="file-upload" style="cursor: pointer; display: flex; align-items: center; justify-content: center;">Upload</label>
+    <input type="file" id="file-upload" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
+    <button class="btn-action" onclick="handleManualPaste()">Paste</button>
+  </div>
+
+  <div class="output-section">
+    <div class="section-group">
+      <span class="section-title">For Rove</span>
+      <button class="toggle-btn off" id="copy-toggle" onclick="toggleCopy()">Auto-Copy Off</button>
+      <span class="subject-sub" id="subject-display">Subject: ----</span>
+      <span id="result-text">Ready...</span>
+    </div>
+
+    <div class="section-group">
+      <span class="section-title">For Papa Cambridge</span>
+      <div id="pdf-container" class="pdf-container">
+        <a id="ms-link" class="pdf-btn" target="_blank">MS PDF</a>
+        <a id="qp-link" class="pdf-btn" target="_blank">QP PDF</a>
+      </div>
+    </div>
+
+    <div class="progress-container"><div id="bar"></div></div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const uploadedImg = document.getElementById('uploaded-img');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resultEl = document.getElementById('result-text');
+    const subjectEl = document.getElementById('subject-display');
+    const pdfContainer = document.getElementById('pdf-container');
+    const msLink = document.getElementById('ms-link');
+    const qpLink = document.getElementById('qp-link');
+    const mainBtn = document.getElementById('main-btn');
+    const camBtn = document.getElementById('cam-btn');
+    const aimBox = document.getElementById('aim-box');
+    const bar = document.getElementById('bar');
+    const copyToggle = document.getElementById('copy-toggle');
+    
+    let stream = null, worker = null, isCameraOn = false, currentMode = 'none', autoCopy = false;
+
+    async function initWorker() {
+      if (worker) return;
+      worker = Tesseract.createWorker({ logger: m => { if(m.status === 'recognizing text') bar.style.width = (m.progress * 100) + '%'; } });
+      await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng');
+      await worker.setParameters({ tessedit_char_whitelist: '0123456789MSWQPFJONmswqpfjon/_ ' });
+    }
+
+    async function toggleCamera() {
+      if (isCameraOn) {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        video.style.display = 'none';
+        aimBox.style.display = 'none';
+        camBtn.textContent = "Open Camera";
+        mainBtn.textContent = "Capture & Scan";
+        isCameraOn = false;
+        currentMode = (uploadedImg.style.display === 'block') ? 'image' : 'none';
+      } else {
+        await initWorker();
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+          video.srcObject = stream;
+          video.style.display = 'block';
+          uploadedImg.style.display = 'none';
+          aimBox.style.display = 'block';
+          camBtn.textContent = "Close Camera";
+          isCameraOn = true;
+          currentMode = 'camera';
+          if(video.paused) video.play();
+        } catch(e) { alert("Camera Access Denied"); }
+      }
+    }
+
+        function parseCode(text) {
       const manualSub = document.getElementById('manual-sub').value.trim();
       const clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
       
@@ -118,3 +361,78 @@
         pdfContainer.style.display = 'none';
       }
     }
+
+
+    async function scan() {
+      if (currentMode === 'none') { alert("Open camera or upload image first"); return; }
+      if (currentMode === 'camera' && video.paused) {
+        video.play();
+        mainBtn.textContent = "Capture & Scan";
+        bar.style.width = '0%';
+        return;
+      }
+      await initWorker();
+      if (currentMode === 'camera') video.pause(); 
+      mainBtn.disabled = true;
+      mainBtn.textContent = "Scanning...";
+      
+      const source = currentMode === 'image' ? uploadedImg : video;
+      let sx = 0, sy = 0, sw = source.naturalWidth || source.videoWidth, sh = source.naturalHeight || source.videoHeight;
+      
+      if (currentMode === 'camera') {
+        const wrapW = 340, wrapH = 220; 
+        const vidRatio = sw / sh;
+        const wrapRatio = wrapW / wrapH;
+        let drawW = sw, drawH = sh;
+        if (vidRatio > wrapRatio) { drawW = sh * wrapRatio; sx = (sw - drawW) / 2; }
+        else { drawH = sw / wrapRatio; sy = (sh - drawH) / 2; }
+        const boxCropW = drawW * 0.85;
+        const boxCropH = drawH * (60 / 220);
+        sx = sx + (drawW - boxCropW) / 2;
+        sy = sy + (drawH - boxCropH) / 2;
+        sw = boxCropW; sh = boxCropH;
+      }
+
+      const scale = 3; 
+      canvas.width = sw * scale; canvas.height = sh * scale;
+      ctx.filter = 'grayscale(100%) contrast(300%) brightness(110%)'; // Increased contrast for older paper clarity
+      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      
+      worker.recognize(canvas).then(({ data: { text } }) => {
+        parseCode(text);
+        mainBtn.disabled = false;
+        mainBtn.textContent = currentMode === 'camera' ? "Resume Camera" : "Scan Image";
+        bar.style.width = '0%';
+      });
+    }
+
+    async function handleManualPaste() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if(text) parseCode(text);
+      } catch(e) { alert("Enable clipboard permissions"); }
+    }
+
+    function toggleCopy() {
+      autoCopy = !autoCopy;
+      copyToggle.textContent = autoCopy ? "Auto-Copy On" : "Auto-Copy Off";
+      copyToggle.classList.toggle('off', !autoCopy);
+    }
+
+    function handleFileUpload(event) {
+      if (event.target.files[0]) {
+        const url = URL.createObjectURL(event.target.files[0]);
+        uploadedImg.src = url;
+        uploadedImg.onload = () => {
+          if (isCameraOn) toggleCamera();
+          video.style.display = 'none';
+          uploadedImg.style.display = 'block';
+          currentMode = 'image';
+          mainBtn.textContent = "Scan Image";
+          resultEl.textContent = "Image loaded. Ready to scan.";
+        }
+      }
+    }
+  </script>
+</body>
+</html>

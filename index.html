@@ -297,24 +297,121 @@
       if (seas && pap && yr) {
         let yrInt = parseInt(yr);
         let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
-        let fullYearStr = (yrInt > 50 ? "19" : "20") + yr;
-        let finalVarnt = (yrInt < 10) ? "" : (varnt || "1");
+    function parseCode(text) {
+      const manualSub = document.getElementById('manual-sub').value.trim();
+      // Keep underscores for the strict regex, but clean other noise
+      const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '').trim();
+      
+      let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
 
-        resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYearStr}`;
-        subjectEl.textContent = `Subject: ${sub}`;
-        resultEl.textContent = resText;
+      // --- 1. THE "STRICT" SUITE ---
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      const mShort = clean.match(/([MSW])\s*(\d{2})\s*(?:QP|MS)\s*(\d)(\d)?/);
+      const mSlash = clean.match(/(\d{4})?\/?\s*([1-8])([1-6])?\/?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\/?\s*(?:20)?(\d{2})/);
 
-        const fileSuffix = pap + finalVarnt;
-        msLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${fileSuffix}.pdf`;
-        qpLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${fileSuffix}.pdf`;
+      if (mUnder || mShort || mSlash) {
+        if (mUnder) {
+          if (!sub && mUnder[1]) sub = mUnder[1];
+          seas = mUnder[2].toLowerCase();
+          yr = mUnder[3];
+          pap = mUnder[5];
+          varnt = mUnder[6] || "";
+        } else if (mShort) {
+          seas = mShort[1].toLowerCase();
+          yr = mShort[2];
+          pap = mShort[3];
+          varnt = mShort[4] || "";
+        } else if (mSlash) {
+          if (!sub && mSlash[1]) sub = mSlash[1];
+          pap = mSlash[2];
+          varnt = mSlash[3] || "";
+          let sStr = mSlash[4].replace(/\s/g, '');
+          yr = mSlash[5];
+          seas = (sStr==='MJ'||sStr==='S')?'s':(sStr==='ON'||sStr==='W'?'w':'m');
+        }
         
-        pdfContainer.style.display = 'flex';
-        if(autoCopy) navigator.clipboard.writeText(resText);
-      } else {
-        resultEl.textContent = "No valid code found";
-        pdfContainer.style.display = 'none';
+        // If we hit a strict match, go straight to building the link
+        finalizeScan(sub, seas, yr, pap, varnt);
+      } 
+      else {
+        // --- 2. THE "SMART" FALLBACK ---
+        // Only runs if the patterns above found nothing
+        runSmartFallback(clean, sub);
       }
     }
+
+    function runSmartFallback(clean, sub) {
+      let pap = "", varnt = "", seas = "", yr = "";
+      const smartClean = clean.replace(/[/_]/g, ' ').replace(/\s+/g, ' ');
+
+      // A. Subject
+      if (!sub) {
+        let subMatch = smartClean.match(/\b([0789]\d{3})\b/);
+        sub = subMatch ? subMatch[1] : "9709";
+      }
+
+      // B. Session
+      if (/\b(M\s*J|S)\b/.test(smartClean)) seas = 's';
+      else if (/\b(O\s*N|W)\b/.test(smartClean)) seas = 'w';
+      else if (/\b(F\s*M|M)\b/.test(smartClean)) seas = 'm';
+
+      // C. Year
+      let fullYear = smartClean.match(/\b20(\d{2})\b/);
+      if (fullYear) yr = fullYear[1];
+      else {
+        let yrAfterSeas = smartClean.match(/(?:MJ|ON|FM|S|W|M)\s*(\d{2})\b/);
+        yr = yrAfterSeas ? yrAfterSeas[1] : "";
+      }
+
+      // D. Paper/Variant
+      let qpMatch = smartClean.match(/(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
+      if (qpMatch) {
+        pap = qpMatch[1][0];
+        varnt = qpMatch[1].length > 1 ? qpMatch[1][1] : "";
+      } else {
+        let loose = smartClean.match(/\b\d{1,2}\b/g) || [];
+        loose = loose.filter(n => n !== yr);
+        if (loose.length > 0) {
+          pap = loose[0][0];
+          varnt = loose[0].length > 1 ? loose[0][1] : "";
+        }
+      }
+
+      if (seas && yr && pap) {
+        finalizeScan(sub, seas, yr, pap, varnt);
+      } else {
+        document.getElementById('result-text').textContent = "No valid code found";
+        document.getElementById('pdf-container').style.display = 'none';
+      }
+    }
+
+    function finalizeScan(sub, seas, yr, pap, varnt) {
+      const yrInt = parseInt(yr);
+      const sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+      const fullYearStr = (yrInt > 50 ? "19" : "20") + yr;
+
+      // The 2010 Variant Rule
+      let finalVarnt = (yrInt < 10) ? "" : (varnt || "1");
+
+      const resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYearStr}`;
+      
+      document.getElementById('subject-display').textContent = `Subject: ${sub}`;
+      document.getElementById('result-text').textContent = resText;
+
+      const fileSuffix = pap + finalVarnt;
+      const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
+      const qpUrlPart = `${sub}_${seas}${yr}_qp_${fileSuffix}`;
+      
+      const msLink = document.getElementById('ms-link');
+      const qpLink = document.getElementById('qp-link');
+      msLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
+      qpLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${qpUrlPart}.pdf`;
+      
+      document.getElementById('pdf-container').style.display = 'flex';
+      // Use the global autoCopy variable
+      if(window.autoCopy) navigator.clipboard.writeText(resText);
+    }
+
 
     async function toggleCamera() {
       if (isCameraOn) {

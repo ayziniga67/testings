@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge SmartScan v4</title>
+  <title>Leakbridge Pro - Speed Edition</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -13,64 +13,70 @@
     body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Snapshot Viewport */
-    #viewport {
-      width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px;
-      overflow: hidden; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);
-      position: relative;
-    }
+    /* Viewport & Progress Overlay */
+    #viewport-container { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; position: relative; border: 1px solid rgba(255,255,255,0.1); }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
-    #snapshot-overlay { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-        background: rgba(0,0,0,0.6); display: none; justify-content: center; 
-        align-items: center; font-weight: 700; color: var(--accent);
-    }
-
-    .input-zone { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid var(--warn); display: none; }
-    .input-zone.active { display: block; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0% { border-color: var(--warn); } 50% { border-color: transparent; } 100% { border-color: var(--warn); } }
     
+    #overlay { 
+      position: absolute; top:0; left:0; width:100%; height:100%; 
+      background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; 
+      justify-content: center; align-items: center; z-index: 10;
+    }
+    .progress-container { width: 70%; height: 8px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
+    #progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.2s; }
+    #overlay-text { font-weight: 700; color: var(--accent); font-size: 0.9rem; letter-spacing: 1px; }
+
+    /* Inputs */
+    .input-zone { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid var(--warn); display: none; }
+    .input-zone.active { display: block; }
     input { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; margin: 10px 0; }
 
+    /* Controls */
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn { padding: 14px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
     .btn-capture { background: var(--accent); color: #000; grid-column: span 2; font-size: 1.1rem; }
-    .btn-reset { background: #334155; color: white; }
-    .btn:disabled { opacity: 0.5; }
+    .btn-secondary { background: #334155; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn:active { transform: scale(0.98); }
 
-    #log { text-align: center; font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; }
-    
-    .viewer-sec { display: none; width: 100%; border-top: 1px solid #334155; padding-top: 20px; }
-    iframe { width: 100%; height: 500px; border-radius: 12px; background: white; border: none; }
+    #log { text-align: center; font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; height: 1.2rem; }
+    .viewer-sec { display: none; width: 100%; }
+    iframe { width: 100%; height: 500px; border-radius: 12px; background: white; border: none; margin-top: 10px; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <div id="viewport">
+  <div id="viewport-container">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" style="display:none;"></canvas>
-    <div id="snapshot-overlay">PROCESSING...</div>
+    
+    <div id="overlay">
+      <div id="overlay-text">ANALYZING...</div>
+      <div class="progress-container"><div id="progress-bar"></div></div>
+      <div id="sub-log" style="font-size: 0.6rem; color: #94a3b8; margin-top: 8px;">Preparing Engines</div>
+    </div>
   </div>
 
-  <div id="log">Align paper and tap Capture</div>
+  <div id="log">Ready</div>
 
   <div class="input-zone" id="input-zone">
-    <label id="prompt-label">Subject Code Needed:</label>
-    <input type="text" id="manual-field" placeholder="e.g. 9702">
+    <label id="prompt-label" style="font-size: 0.7rem; color: var(--warn); font-weight: 800;">MISSING DATA</label>
+    <input type="text" id="manual-field" placeholder="...">
     <button class="btn btn-capture" onclick="resumeLogic()">CONTINUE</button>
   </div>
 
   <div class="btn-row" id="main-btns">
     <button class="btn btn-capture" id="cap-btn" onclick="takeSnapshot()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-reset" onclick="resetCamera()">RESET CAMERA</button>
-    <label class="btn btn-reset" style="text-align:center;">UPLOAD<input type="file" hidden onchange="handleFile(event)"></label>
+    <button class="btn btn-secondary" onclick="startCam()">START CAMERA</button>
+    <button class="btn btn-danger" onclick="stopCam()">CLOSE CAMERA</button>
+    <label class="btn btn-secondary" style="text-align:center; grid-column: span 2;">UPLOAD PHOTO<input type="file" hidden onchange="handleFile(event)"></label>
   </div>
 
   <div class="viewer-sec" id="viewer-sec">
-    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-        <span id="paper-id" style="color:var(--accent); font-weight:700;"></span>
-        <span id="page-info" style="font-size:0.8rem;">Jumping to MS...</span>
+    <div style="display:flex; justify-content:space-between; font-size: 0.8rem; font-weight: 600;">
+        <span id="paper-id" style="color:var(--accent);"></span>
+        <span id="page-jump-info"></span>
     </div>
     <iframe id="pdf-frame"></iframe>
   </div>
@@ -81,26 +87,37 @@
   
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
-  const overlay = document.getElementById('snapshot-overlay');
-  const log = document.getElementById('log');
+  const overlay = document.getElementById('overlay');
+  const progBar = document.getElementById('progress-bar');
+  const subLog = document.getElementById('sub-log');
   
   let stream = null;
   let activeState = { sub: '', seas: '', yr: '', pap: '', q: '', words: [] };
 
-  // --- 1. CAMERA SYSTEM ---
   async function startCam() {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = stream;
+    if (stream) stopCam();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 1280 } });
+      video.srcObject = stream;
+      video.style.display = 'block';
+      canvas.style.display = 'none';
+      document.getElementById('log').innerText = "Camera Active";
+    } catch(e) { alert("Camera Error"); }
   }
-  startCam();
+  startCam(); // Start on load
 
-  function resetCamera() {
-    video.style.display = 'block';
-    canvas.style.display = 'none';
-    overlay.style.display = 'none';
-    document.getElementById('viewer-sec').style.display = 'none';
-    document.getElementById('input-zone').classList.remove('active');
-    log.innerText = "Camera active.";
+  function stopCam() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.style.display = 'none';
+      document.getElementById('log').innerText = "Camera Closed";
+    }
+  }
+
+  function updateProgress(percent, text) {
+    progBar.style.width = percent + "%";
+    subLog.innerText = text;
   }
 
   function handleFile(e) {
@@ -115,47 +132,46 @@
       img.src = URL.createObjectURL(e.target.files[0]);
   }
 
-  // --- 2. SNAPSHOT & TWO-PASS SCAN ---
   async function takeSnapshot() {
-    // Freeze Frame
+    if (!stream) return alert("Open camera first!");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     video.style.display = 'none';
     canvas.style.display = 'block';
     overlay.style.display = 'flex';
-    
     runTwoPassScan();
   }
 
   async function runTwoPassScan() {
-    const worker = await Tesseract.createWorker('eng');
-    const { data: { text } } = await worker.recognize(canvas);
-    await worker.terminate();
+    updateProgress(10, "Initializing OCR...");
+    try {
+        const worker = await Tesseract.createWorker('eng');
+        updateProgress(30, "Reading Text...");
+        const { data: { text } } = await worker.recognize(canvas);
+        await worker.terminate();
 
-    const clean = text.toUpperCase().replace(/\s+/g, '');
-    
-    // PASS 1: The Code (M23/12/Q1 style)
-    const codeMatch = clean.match(/(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
-    if(codeMatch) {
-        activeState.sub = codeMatch[1] || "";
-        activeState.seas = (codeMatch[2]==='M'||codeMatch[2]==='F')?'m':(codeMatch[2]==='S'?'s':'w');
-        activeState.yr = codeMatch[3];
-        activeState.pap = codeMatch[4];
-        activeState.q = codeMatch[5] || "";
-    }
+        const clean = text.toUpperCase().replace(/\s+/g, '');
+        const codeMatch = clean.match(/(\d{4})?[^\w]*?([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
+        
+        if(codeMatch) {
+            activeState.sub = codeMatch[1] || "";
+            activeState.seas = (codeMatch[2]==='M'||codeMatch[2]==='F')?'m':(codeMatch[2]==='S'?'s':'w');
+            activeState.yr = codeMatch[3]; activeState.pap = codeMatch[4];
+            activeState.q = codeMatch[5] || "";
+        }
+        activeState.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
 
-    // PASS 2: Combination of words (Context)
-    // Only strictly needed if Q is not in the code
-    activeState.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
-
-    // Check if we need manual help
-    if(!activeState.seas) {
-        showManual("Full Code Not Found. Enter manually:", "e.g. 9702 M23/12/Q1");
-    } else if(!activeState.sub) {
-        showManual(`Detected ${activeState.seas.toUpperCase()}${activeState.yr}/P${activeState.pap}. Enter Subject:`, "e.g. 9702");
-    } else {
-        startThirdStage();
+        if(!activeState.seas) {
+            showManual("Full Code Not Found", "e.g. 9702 M23/12/Q1");
+        } else if(!activeState.sub) {
+            showManual(`Detected Paper ${activeState.seas.toUpperCase()}${activeState.yr}/P${activeState.pap}`, "Enter 4-digit Subject Code");
+        } else {
+            startStageThree();
+        }
+    } catch(e) {
+        alert("Scan Failed. Use Manual Input.");
+        showManual("Scan Error", "Enter code manually");
     }
   }
 
@@ -174,20 +190,16 @@
     } else {
         const m = val.match(/(\d{4})([FMSW])(\d{2})\/(\d{1,2})(?:\/Q(\d+))?/);
         if(m) {
-            activeState.sub = m[1]; 
-            activeState.seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
+            activeState.sub = m[1]; activeState.seas = (m[2]==='M'||m[2]==='F')?'m':(m[2]==='S'?'s':'w');
             activeState.yr = m[3]; activeState.pap = m[4]; activeState.q = m[5] || "";
         }
     }
     document.getElementById('input-zone').classList.remove('active');
-    startThirdStage();
+    overlay.style.display = 'flex';
+    startStageThree();
   }
 
-  // --- 3. THIRD STAGE (PDF ROUTING) ---
-  async function startThirdStage() {
-    overlay.style.display = 'none';
-    log.innerText = "Routing to Mark Scheme...";
-    
+  async function startStageThree() {
     const { sub, seas, yr, pap, q, words } = activeState;
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
     const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
@@ -197,33 +209,41 @@
 
     let targetQ = q;
 
-    // If Q wasn't in the code, use Pass 2 words to find Q in the Question Paper
     if(!targetQ && words.length > 0) {
-        log.innerText = "Scanning QP for Question Number...";
+        updateProgress(50, "Searching Question Paper...");
         targetQ = await findQFromQP(qpUrl, words);
     }
 
-    // Now jump to the page in the Mark Scheme
-    if(targetQ) {
-        log.innerText = `Jumping to Question ${targetQ} in MS...`;
-        await jumpToMSPage(msUrl, targetQ);
-    } else {
-        document.getElementById('pdf-frame').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true`;
-    }
+    updateProgress(80, "Finding Answer in MS...");
+    const finalPage = await jumpToMSPage(msUrl, targetQ || "1");
+    
+    updateProgress(100, "Done!");
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.getElementById('pdf-frame').src = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${finalPage}`;
+        document.getElementById('page-jump-info').innerText = `Jumped to Page ${finalPage}`;
+    }, 500);
   }
 
+  // Optimized Scan with Progress Updates
   async function findQFromQP(url, words) {
     try {
         const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const pdf = await pdfjsLib.getDocument(proxy).promise;
-        for (let i = 1; i <= pdf.numPages; i++) {
+        const total = pdf.numPages;
+        
+        for (let i = 1; i <= total; i++) {
+            updateProgress(50 + (i/total * 20), `Scanning QP Page ${i}/${total}`);
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
             const text = content.items.map(s => s.str).join(' ').toLowerCase();
+            
             if (words.slice(0,3).every(w => text.includes(w))) {
                 const match = text.match(/(?:^|\s)(\d+)\s*\./);
                 return match ? match[1] : null;
             }
+            // Anti-freeze pause
+            await new Promise(r => setTimeout(r, 10));
         }
     } catch(e) { return null; }
   }
@@ -233,19 +253,21 @@
     try {
         const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const pdf = await pdfjsLib.getDocument(proxy).promise;
-        for (let i = 1; i <= pdf.numPages; i++) {
+        const total = pdf.numPages;
+
+        for (let i = 1; i <= total; i++) {
+            updateProgress(80 + (i/total * 15), `Scanning MS Page ${i}/${total}`);
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
             const text = content.items.map(s => s.str).join(' ');
-            // Regex to find Question number at start of marking block
+            
             if (new RegExp(`\\b${qNum}\\b`).test(text)) {
-                pageNum = i;
-                break;
+                pageNum = i; break;
             }
+            await new Promise(r => setTimeout(r, 10));
         }
     } catch(e) {}
-    document.getElementById('pdf-frame').src = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true#page=${pageNum}`;
-    document.getElementById('page-info').innerText = `Page ${pageNum}`;
+    return pageNum;
   }
 </script>
 </body>

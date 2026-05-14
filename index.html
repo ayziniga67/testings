@@ -3,52 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIE Question Searcher</title>
+    <title>CIE Deep Finder (GCE Edition)</title>
     <script src="https://unpkg.com/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
         body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { width: 100%; max-width: 400px; background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 5px; color: var(--accent); }
-        p { font-size: 0.8rem; text-align: center; opacity: 0.7; margin-bottom: 20px; }
-        #preview { width: 100%; height: 200px; background: #000; border-radius: 12px; object-fit: contain; margin-bottom: 15px; }
-        .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--accent); color: var(--bg); font-weight: 600; cursor: pointer; margin-bottom: 10px; }
-        .btn-alt { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
-        #status { font-size: 0.9rem; margin-top: 15px; text-align: center; font-style: italic; }
-        .result-box { margin-top: 20px; padding: 15px; background: rgba(56, 189, 248, 0.1); border-left: 4px solid var(--accent); border-radius: 4px; display: none; }
-        a { color: var(--accent); text-decoration: none; font-weight: bold; display: block; margin-top: 10px; }
-        canvas { display: none; }
+        .container { width: 100%; max-width: 400px; background: var(--card); padding: 25px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); }
+        h1 { font-size: 1.6rem; text-align: center; margin-bottom: 8px; color: var(--accent); font-weight: 600; }
+        .subtitle { font-size: 0.85rem; text-align: center; opacity: 0.6; margin-bottom: 24px; }
+        #preview { width: 100%; height: 220px; background: #000; border-radius: 16px; object-fit: contain; margin-bottom: 20px; border: 1px dashed var(--accent); }
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: var(--accent); color: var(--bg); font-weight: 700; cursor: pointer; margin-bottom: 12px; transition: 0.3s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-alt { background: transparent; border: 2px solid var(--accent); color: var(--accent); }
+        #status { font-size: 0.9rem; margin-top: 15px; text-align: center; color: var(--accent); min-height: 1.2rem; }
+        .result-box { margin-top: 25px; padding: 18px; background: rgba(56, 189, 248, 0.05); border: 1px solid var(--accent); border-radius: 12px; display: none; text-align: center; }
+        .result-box b { color: var(--accent); display: block; margin-bottom: 10px; font-size: 1.1rem; }
+        a { color: var(--bg); background: var(--text); text-decoration: none; font-weight: 800; display: block; padding: 12px; border-radius: 8px; margin-top: 10px; }
+        #fallback-search { display: none; margin-top: 10px; color: #fbbf24; cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Question Finder</h1>
-    <p>Scan a question to find the Mark Scheme page</p>
+    <h1>Question DeepSearch</h1>
+    <div class="subtitle">Identify paper and find the specific page</div>
     
     <img id="preview" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
     
     <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleFile(event)">
     <button class="btn" onclick="document.getElementById('file-input').click()">Upload Question Photo</button>
-    <button id="scan-btn" class="btn btn-alt" style="display:none" onclick="startDeepSearch()">Start Deep Search</button>
+    <button id="scan-btn" class="btn btn-alt" style="display:none" onclick="startDeepSearch()">Analyze & Search</button>
 
     <div id="status"></div>
+    <div id="fallback-search" onclick="caieFinderFallback()">Couldn't find paper code? Try Keyword Search.</div>
 
     <div id="result" class="result-box">
-        <span id="paper-info"></span>
-        <a id="ms-link" target="_blank">View Mark Scheme (Page 1)</a>
+        <b id="paper-info">Paper Identified</b>
+        <span id="page-indicator" style="font-size: 0.8rem; opacity: 0.7;">Scanning PDF pages...</span>
+        <a id="ms-link" target="_blank">Open Mark Scheme</a>
     </div>
 </div>
 
-<canvas id="temp-canvas"></canvas>
-
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-    
-    let scannedText = "";
-    let paperMetadata = null;
+
+    // SUBJECT MAPPER: Required for GCE Guide URL structure
+    const subjectMap = {
+        "9709": "Mathematics (9709)",
+        "0580": "Mathematics (0580)",
+        "9702": "Physics (9702)",
+        "0625": "Physics (0625)",
+        "9701": "Chemistry (9701)",
+        "0620": "Chemistry (0620)",
+        "9700": "Biology (9700)",
+        "0610": "Biology (0610)",
+        "9618": "Computer Science (9618)",
+        "0478": "Computer Science (0478)"
+    };
+
+    let extractedText = "";
 
     function handleFile(e) {
         const file = e.target.files[0];
@@ -57,99 +72,112 @@
         reader.onload = (f) => {
             document.getElementById('preview').src = f.target.result;
             document.getElementById('scan-btn').style.display = 'block';
-            document.getElementById('status').textContent = "Image ready. Click Search.";
+            document.getElementById('status').textContent = "Ready to analyze.";
+            document.getElementById('result').style.display = 'none';
         };
         reader.readAsDataURL(file);
     }
 
     async function startDeepSearch() {
-        const btn = document.getElementById('scan-btn');
         const status = document.getElementById('status');
+        const btn = document.getElementById('scan-btn');
         btn.disabled = true;
-        status.textContent = "Reading text from image...";
+        status.textContent = "OCR: Reading text...";
 
-        const worker = Tesseract.createWorker();
-        await worker.load();
+        const worker = await Tesseract.createWorker();
         await worker.loadLanguage('eng');
         await worker.initialize('eng');
-        
         const { data: { text } } = await worker.recognize(document.getElementById('preview'));
-        scannedText = text;
+        extractedText = text;
         await worker.terminate();
 
-        // 1. Identify the paper using your logic
-        identifyPaper(text);
-    }
-
-    function identifyPaper(text) {
-        const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '');
-        // Using your refined mSlash pattern
-        const mSlash = clean.match(/(\d{4})?[\s/]*(\d)([\d])?[\s/]+(M[\s/]*J|O[\s/]*N|F[\s/]*M|S|W|M)[\s/]*(?:20)?(\d{2})/);
-
-        if (mSlash) {
-            const sub = mSlash[1] || "9709";
-            const pap = mSlash[2];
-            const varnt = mSlash[3] || "1";
-            const yr = mSlash[5];
-            let sStr = mSlash[4].replace(/[\s/]/g, '');
-            let seas = (sStr==='MJ'||sStr==='S')?'s':(sStr==='ON'||sStr==='W'?'w':'m');
-
-            paperMetadata = { sub, seas, yr, pap, varnt };
-            const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}${varnt}.pdf`;
-            searchInsidePdf(qpUrl, text);
+        const metadata = parseMetadata(text);
+        if (metadata) {
+            document.getElementById('fallback-search').style.display = 'none';
+            processGCEGuide(metadata);
         } else {
-            document.getElementById('status').textContent = "Couldn't identify Paper Code from image.";
-            document.getElementById('scan-btn').disabled = false;
+            status.textContent = "Paper code not found in photo.";
+            document.getElementById('fallback-search').style.display = 'block';
+            btn.disabled = false;
         }
     }
 
-    async function searchInsidePdf(qpUrl, queryText) {
+    function parseMetadata(text) {
+        const clean = text.toUpperCase().replace(/[^A-Z0-9_/ ]/g, '');
+        // Unified regex for slash and underscore formats
+        const m = clean.match(/(\d{4})[\s/_]+(\d{1,2})[\s/_]+([MSWJOFN/ ]+)[\s/_]+(?:20)?(\d{2})/) || 
+                clean.match(/(\d{4})_([MSW])(\d{2})_QP_(\d{1,2})/);
+        
+        if (!m) return null;
+
+        // Basic normalization
+        let sub = m[1], papVar = m[2], seasRaw = m[3], yr = m[4];
+        if (m.length === 5 && !isNaN(m[2])) { // Handle 9709/12/M/J/22
+             papVar = m[2]; 
+             seasRaw = m[3];
+             yr = m[4];
+        }
+
+        let seas = 's';
+        if (seasRaw.includes('W') || seasRaw.includes('ON') || seasRaw.includes('N')) seas = 'w';
+        if (seasRaw.includes('M') || seasRaw.includes('F')) seas = 'm';
+
+        return { sub, papVar, seas, yr };
+    }
+
+    async function processGCEGuide(m) {
         const status = document.getElementById('status');
-        status.textContent = "Paper found! Downloading & searching pages...";
+        const resBox = document.getElementById('result');
+        const subFolder = subjectMap[m.sub] || m.sub;
+        const level = m.sub.startsWith('0') ? 'IGCSE' : 'A%20Levels';
+        const fullYear = "20" + m.yr;
 
-        // Use CORS Proxy to reach PapaCambridge
+        const qpName = `${m.sub}_${m.seas}${m.yr}_qp_${m.papVar}.pdf`;
+        const msName = `${m.sub}_${m.seas}${m.yr}_ms_${m.papVar}.pdf`;
+        
+        const qpUrl = `https://papers.gceguide.net/${level}/${subFolder}/${fullYear}/${qpName}`;
+        const msUrl = `https://papers.gceguide.net/${level}/${subFolder}/${fullYear}/${msName}`;
+
+        status.textContent = "Paper Identified. Locating question...";
+        resBox.style.display = 'block';
+        document.getElementById('paper-info').textContent = `${m.sub} Paper ${m.papVar} (${m.seas.toUpperCase()} 20${m.yr})`;
+        
+        // Deep Search via Proxy
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(qpUrl)}`;
-
+        
         try {
             const loadingTask = pdfjsLib.getDocument(proxyUrl);
             const pdf = await loadingTask.promise;
             
-            // Clean the query text (first 25 characters of the question)
-            const searchTerms = queryText.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(' ').filter(w => w.length > 3).slice(0, 5);
+            // Clean question text for matching (pick first few words)
+            const query = extractedText.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(' ').filter(w => w.length > 3).slice(0, 4);
             
             let foundPage = 1;
-
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                const pageText = content.items.map(item => item.str).join(' ').toLowerCase();
-
-                // Simple check: if most keywords match this page
-                let matches = searchTerms.filter(word => pageText.includes(word)).length;
-                if (matches >= 2) {
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
+                
+                if (query.every(word => pageText.includes(word))) {
                     foundPage = i;
                     break;
                 }
             }
 
-            displayResult(foundPage);
+            document.getElementById('page-indicator').textContent = `Question found on Page ${foundPage}`;
+            const finalMsLink = document.getElementById('ms-link');
+            finalMsLink.href = `${msUrl}#page=${foundPage}`;
+            status.textContent = "Success!";
         } catch (e) {
-            status.textContent = "Error reading PDF. Proxy may be down.";
-            document.getElementById('scan-btn').disabled = false;
+            document.getElementById('page-indicator').textContent = "Couldn't scan inside PDF (GCE Guide blocked proxy).";
+            document.getElementById('ms-link').href = msUrl;
+            status.textContent = "Partial Success: Link generated.";
         }
     }
 
-    function displayResult(page) {
-        const m = paperMetadata;
-        document.getElementById('status').textContent = "Search Complete!";
-        document.getElementById('result').style.display = 'block';
-        document.getElementById('paper-info').textContent = `${m.sub} Paper ${m.pap}${m.varnt} Year 20${m.yr}`;
-        
-        const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${m.sub}_${m.seas}${m.yr}_ms_${m.pap}${m.varnt}.pdf`;
-        
-        const link = document.getElementById('ms-link');
-        link.href = `${msUrl}#page=${page}`;
-        link.textContent = `Open Mark Scheme at Page ${page}`;
+    function caieFinderFallback() {
+        const query = encodeURIComponent(extractedText.substring(0, 100));
+        window.open(`https://caiefinder.com/search?query=${query}`, '_blank');
     }
 </script>
 

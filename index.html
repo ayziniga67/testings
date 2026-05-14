@@ -349,6 +349,121 @@
 
         const fileSuffix = pap + finalVarnt;
         const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
+    function parseCode(text) {
+      const manualSub = document.getElementById('manual-sub').value.trim();
+      
+      // 1. Clean the text AND instantly nuke the Question number (e.g. Q4, Q 12) so it doesn't pollute the scanner
+      let clean = text.toUpperCase().replace(/[^A-Z0-9_]/g, ' ').trim();
+      clean = clean.replace(/\bQ\s*\d+\b/g, '').trim(); 
+      
+      let resText = "";
+      let pap = "", varnt = "", seas = "", yr = "", sub = manualSub;
+      let matchedStrict = false;
+
+      // ----------------------------------------------------
+      // 1. STRICT MATCHING (Original fast patterns)
+      // ----------------------------------------------------
+      const mUnder = clean.match(/(\d{4})?_?([MSW])(\d{2})_(QP|MS)_(\d)(\d)?/);
+      const mShort = clean.match(/([MSW])\s*(\d{2})\s*[_ ]?\s*(QP|MS)\s*[_ ]?\s*(\d)(\d)?/);
+      const mSlash = clean.match(/(\d{4})?\s*([1-8])\s*([1-6])?\s*(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})/);
+
+      if (mUnder || mShort) {
+        const match = mUnder || mShort;
+        if (!sub && mUnder && mUnder[1]) sub = mUnder[1];
+        seas = match[mUnder ? 2 : 1].toLowerCase(); 
+        yr = match[mUnder ? 3 : 2]; 
+        pap = match[mUnder ? 5 : 4]; 
+        varnt = match[mUnder ? 6 : 5] || "";
+        matchedStrict = true;
+      } 
+      else if (mSlash) {
+        if (!sub && mSlash[1]) sub = mSlash[1];
+        pap = mSlash[2];
+        varnt = mSlash[3] || "";
+        let seasStr = mSlash[4].replace(/\s/g, ''); 
+        yr = mSlash[5];
+        if (seasStr === 'MJ' || seasStr === 'S') seas = 's';
+        else if (seasStr === 'ON' || seasStr === 'W') seas = 'w';
+        else if (seasStr === 'FM' || seasStr === 'M') seas = 'm';
+        matchedStrict = true;
+      }
+
+      // ----------------------------------------------------
+      // 2. SMART FALLBACK (The puzzle-piece logic)
+      // ----------------------------------------------------
+      if (!matchedStrict) {
+        const smartClean = clean.replace(/_/g, ' ').replace(/\s+/g, ' '); 
+        
+        // A. Find Subject (Any 4 digit number that isn't a year)
+        if (!sub) {
+            let subMatch = smartClean.match(/\b([0789]\d{3})\b/);
+            if (subMatch) sub = subMatch[1];
+        }
+
+        // B & C. Find Session and Year together (Perfect for formats like 'W23', 'MJ 08', 'S 21')
+        let seasYrMatch = smartClean.match(/\b(M\s*J|O\s*N|F\s*M|S|W|M)\s*(?:20)?(\d{2})\b/);
+        if (seasYrMatch) {
+            let sStr = seasYrMatch[1].replace(/\s/g, '');
+            if (sStr === 'MJ' || sStr === 'S') seas = 's';
+            else if (sStr === 'ON' || sStr === 'W') seas = 'w';
+            else if (sStr === 'FM' || sStr === 'M') seas = 'm';
+            yr = seasYrMatch[2];
+        } else {
+            // Fallback if they are weirdly separated
+            let fullYear = smartClean.match(/\b(?:20)(\d{2})\b/);
+            if (fullYear) yr = fullYear[1];
+            
+            if (/\b(M\s*J|S)\b/.test(smartClean)) seas = 's';
+            else if (/\b(O\s*N|W)\b/.test(smartClean)) seas = 'w';
+            else if (/\b(F\s*M|M)\b/.test(smartClean)) seas = 'm';
+        }
+
+        // D. Find Paper/Variant (Looks near 'QP/MS', before the session, or just remaining numbers)
+        let qpMatch = smartClean.match(/\b(?:QP|MS|PAPER)\s*(\d{1,2})\b/);
+        let papBeforeSeas = smartClean.match(/\b(\d{1,2})\s*(?:M\s*J|O\s*N|F\s*M|S|W|M)\b/);
+        
+        if (qpMatch) {
+            pap = qpMatch[1][0];
+            varnt = qpMatch[1].length > 1 ? qpMatch[1][1] : "";
+        } else if (papBeforeSeas) {
+            pap = papBeforeSeas[1][0];
+            varnt = papBeforeSeas[1].length > 1 ? papBeforeSeas[1][1] : "";
+        } else {
+            // Ultimate fallback: Find any remaining 1-2 digit number that IS NOT the year
+            let looseNums = smartClean.match(/\b\d{1,2}\b/g) || [];
+            looseNums = looseNums.filter(n => n !== yr); // Remove the year so it doesn't get confused
+            if (looseNums.length > 0) {
+                pap = looseNums[0][0];
+                varnt = looseNums[0].length > 1 ? looseNums[0][1] : "";
+            }
+        }
+      }
+
+      // ----------------------------------------------------
+      // 3. FINAL COMPILATION & PRE-2010 RULE
+      // ----------------------------------------------------
+      sub = sub || "9709"; // Default if absolutely nothing was found
+      
+      if (seas && pap && yr) {
+        let yrInt = parseInt(yr);
+        let sName = (seas === 'm') ? "March" : (seas === 's' ? "Summer" : "Winter");
+        let fullYearStr = (yrInt > 50 ? "19" : "20") + yr;
+
+        // The Time-Travel Rule:
+        let finalVarnt = "";
+        if (yrInt < 10) {
+            finalVarnt = ""; // Pre-2010 = Wipe the variant
+        } else {
+            finalVarnt = varnt || "1"; // Post-2010 = Keep it, or default to 1
+        }
+
+        resText = `Paper ${pap}${finalVarnt ? " Variant " + finalVarnt : ""} ${sName} ${fullYearStr}`;
+        
+        subjectEl.textContent = `Subject: ${sub}`;
+        resultEl.textContent = resText;
+
+        const fileSuffix = pap + finalVarnt;
+        const msUrlPart = `${sub}_${seas}${yr}_ms_${fileSuffix}`;
         const qpUrlPart = `${sub}_${seas}${yr}_qp_${fileSuffix}`;
         
         msLink.href = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${msUrlPart}.pdf`;
@@ -361,7 +476,6 @@
         pdfContainer.style.display = 'none';
       }
     }
-
 
     async function scan() {
       if (currentMode === 'none') { alert("Open camera or upload image first"); return; }

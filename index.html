@@ -8,13 +8,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --warn: #facc15; --text: #f8fafc; }
+    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Visual Media Box */
-    #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+    #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
     
     #overlay { 
@@ -25,22 +24,15 @@
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.4s ease; }
 
-    /* Control Panel */
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; font-size: 0.85rem; transition: transform 0.1s, background 0.2s; }
-    .btn:active { transform: scale(0.96); }
-    .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+    .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; }
     .btn-sub { background: #334155; color: white; }
     .btn-stop { background: #7f1d1d; color: white; }
 
-    #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 12px; font-weight: 500; }
-    
-    /* Viewer Section */
-    .viewer-wrap { display: none; width: 100%; margin-top: 10px; animation: fadeIn 0.5s ease; }
-    #info-bar { background: var(--card); padding: 10px; border-radius: 8px 8px 0 0; border: 1px solid rgba(255,255,255,0.05); }
-    iframe { width: 100%; height: 600px; border-radius: 0 0 10px 10px; background: white; border: none; }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 12px; }
+    .viewer-wrap { display: none; width: 100%; margin-top: 10px; }
+    iframe { width: 100%; height: 600px; border-radius: 10px; background: white; border: none; }
   </style>
 </head>
 <body>
@@ -49,52 +41,51 @@
   <div id="media-box">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" style="display:none;"></canvas>
-    
     <div id="overlay">
-      <div id="status-txt" style="font-weight:700; color:var(--accent); text-align:center;">INITIALIZING...</div>
+      <div id="status-txt" style="font-weight:700; color:var(--accent);">WORKING...</div>
       <div class="progress-wrap"><div id="progress-fill"></div></div>
     </div>
   </div>
 
-  <div id="log">Ready to Scan Paper</div>
+  <div id="log">Initializing OCR...</div>
 
   <div class="btn-grid">
-    <button class="btn btn-main" onclick="doCapture()">Capture & Solve</button>
-    <label class="btn btn-sub" style="text-align:center; cursor:pointer;">Upload Image<input type="file" hidden onchange="doUpload(event)"></label>
+    <button class="btn btn-main" onclick="doCapture()">Capture & Analyze</button>
+    <label class="btn btn-sub" style="text-align:center; cursor:pointer;">Upload File<input type="file" hidden onchange="doUpload(event)"></label>
     <button class="btn btn-sub" onclick="initCam()">Camera On</button>
     <button class="btn btn-stop" onclick="stopCam()">Camera Off</button>
   </div>
 
   <div class="viewer-wrap" id="viewer-wrap">
-    <div id="info-bar" style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; font-weight:600;">
-        <span id="paper-id" style="color:var(--accent);"></span>
-        <span id="page-id" style="color:#94a3b8;"></span>
+    <div id="info-bar" style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:0.8rem;">
+        <span id="paper-id" style="color:var(--accent); font-weight:bold;"></span>
+        <span id="page-id"></span>
     </div>
     <iframe id="pdf-view"></iframe>
   </div>
 </div>
 
 <script>
-  // PDF.js Worker
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const overlay = document.getElementById('overlay');
   const prog = document.getElementById('progress-fill');
-  const statusTxt = document.getElementById('status-txt');
   
   let stream = null;
   let ocrWorker = null;
-  let state = { sub: '9702', seas: '', yr: '', pap: '', q: '', keywords: [] };
+  let state = { sub: '9702', seas: '', yr: '', pap: '', q: '', words: [] };
 
-  // --- STEP 0: BOOTING ---
-  async function initWorker() {
+  // --- 1. BOOT ENGINE ---
+  async function setupOCR() {
     if (!ocrWorker) {
-      updateProg(5, "Loading OCR Engine...");
+      document.getElementById('log').innerText = "Loading OCR...";
       ocrWorker = await Tesseract.createWorker('eng');
+      document.getElementById('log').innerText = "System Ready";
     }
   }
+  setupOCR();
 
   async function initCam() {
     try {
@@ -102,19 +93,17 @@
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 1280 } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-      document.getElementById('log').innerText = "Camera: Active";
-      await initWorker(); // Pre-load worker
-    } catch(e) { document.getElementById('log').innerText = "Camera: Access Denied"; }
+      document.getElementById('log').innerText = "Camera Active";
+    } catch(e) { document.getElementById('log').innerText = "Camera Error"; }
   }
   initCam();
 
   function stopCam() {
     if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.style.display = 'none';
-    document.getElementById('log').innerText = "Camera: Inactive";
   }
 
-  // --- PIPELINE HANDLERS ---
+  // --- 2. PIPELINE ---
   function doUpload(e) {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -131,97 +120,80 @@
   }
 
   function doCapture() {
-    if(!stream && video.style.display !== 'none') return alert("Start camera first.");
+    if(!stream && video.style.display !== 'none') return alert("Turn on camera!");
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     video.style.display = 'none'; canvas.style.display = 'block';
     processPipeline();
   }
 
-  // --- CORE LOGIC (3-STEP SYSTEM) ---
   async function processPipeline() {
     overlay.style.display = 'flex';
-    updateProg(20, "Analyzing Image...");
+    updateProg(10, "Initializing...");
 
     try {
-      await initWorker();
+      await setupOCR();
+      updateProg(30, "Scanning Image...");
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
-      // STEP 1: SCAN FOR CAMBRIDGE CODE (Ignore noise like "2.")
-      // Normalized text for regex: remove spaces, handle slashes/1s/pipes
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      
-      // Robust Regex: Looks for [FMSW] + Year + Paper + optional Q
-      const codeRegex = /([FMSW])(\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
-      const match = clean.match(codeRegex);
+      const regex = /([FMSW])(\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
+      const match = clean.match(regex);
 
-      if (match) {
-        state.sub = "9702"; 
-        state.seas = match[1].toLowerCase();
-        state.yr = match[2];
-        state.pap = match[3];
-        state.q = match[4] || ""; 
-        
-        // Prep unique keywords for Step 2 fallback
-        state.keywords = text.toLowerCase()
-          .replace(/[^a-z\s]/g, '')
-          .split(/\s+/)
-          .filter(w => w.length > 5 && !['question', 'quantity'].includes(w))
-          .slice(0, 3);
+      if (!match) throw new Error("Could not read paper code.");
 
-        await runSearch();
-      } else {
-        throw new Error("Cambridge code (e.g. W23/12) not found.");
-      }
-    } catch(e) {
-      alert("Error: " + e.message);
+      state.seas = match[1].toLowerCase();
+      state.yr = match[2];
+      state.pap = match[3];
+      state.q = match[4] || "";
+      state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+
+      runSearch();
+    } catch(err) {
+      alert("Error: " + err.message);
       overlay.style.display = 'none';
-      video.style.display = 'block'; canvas.style.display = 'none';
     }
   }
 
   async function runSearch() {
-    const { sub, seas, yr, pap, q, keywords } = state;
+    const { sub, seas, yr, pap, q, words } = state;
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
     const qpUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
 
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap}`;
 
-    let finalQ = q;
+    let targetQ = q;
 
-    // STEP 2: IF QUESTION NUMBER NOT IN CODE, HUNT IN QP
-    if (!finalQ && keywords.length > 0) {
-      updateProg(50, "Hunting Question # in QP...");
-      finalQ = await findQ(qpUrl, keywords);
+    if (!targetQ && words && words.length > 0) {
+      updateProg(60, "Hunting Question #...");
+      targetQ = await findQ(qpUrl, words);
     }
 
-    // STEP 3: IDENTIFY QUESTION PAGE IN MS
-    updateProg(80, "Indexing Mark Scheme...");
-    const pageNum = await findPage(msUrl, finalQ || "1");
+    updateProg(85, "Finding Page...");
+    const page = await findPage(msUrl, targetQ || "1");
 
-    updateProg(100, "Opening Solution...");
+    updateProg(100, "Opening...");
     setTimeout(() => {
       overlay.style.display = 'none';
-      // Constructing viewer with embedded page jump
-      const proxyUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${pageNum}`;
-      document.getElementById('pdf-view').src = proxyUrl;
-      document.getElementById('page-id').innerText = `Jumped to Q${finalQ || 1} (Pg ${pageNum})`;
-    }, 600);
+      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(msUrl)}&embedded=true#page=${page}`;
+      document.getElementById('pdf-view').src = viewer;
+      document.getElementById('page-id').innerText = `Q${targetQ || 1} (Page ${page})`;
+    }, 500);
   }
 
-  // --- PDF SCANNERS ---
+  // --- 3. HELPERS ---
   async function findQ(url, words) {
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
-      for (let i = 1; i <= Math.min(pdf.numPages, 15); i++) {
+      const loadingTask = pdfjsLib.getDocument(proxy);
+      const pdf = await loadingTask.promise;
+      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const txt = content.items.map(s => s.str).join(' ').toLowerCase();
-        // If all 3 keywords exist on this page, it's likely our question
-        if (words.every(w => txt.includes(w))) {
-          const m = txt.match(/(?:^|\s)(\d+)\s*\./); // Match "2. "
+        if (words.slice(0,3).every(w => txt.includes(w))) {
+          const m = txt.match(/(?:^|\s)(\d+)\s*\./);
           return m ? m[1] : null;
         }
       }
@@ -231,12 +203,12 @@
   async function findPage(url, qNum) {
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      const loadingTask = pdfjsLib.getDocument(proxy);
+      const pdf = await loadingTask.promise;
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const txt = content.items.map(s => s.str).join(' ');
-        // Find Q number as standalone digit (Start of line, or after "Question")
         const regex = new RegExp(`(^|\\s|Question\\s)${qNum}(\\s|\\.|$)`, 'i');
         if (regex.test(txt)) return i;
       }
@@ -246,9 +218,8 @@
 
   function updateProg(pct, msg) {
     prog.style.width = pct + "%";
-    statusTxt.innerText = msg;
+    document.getElementById('status-txt').innerText = msg;
   }
 </script>
-
 </body>
 </html>

@@ -127,34 +127,41 @@
   }
 
   async function processPipeline() {
-    overlay.style.display = 'flex';
-    updateProg(20, "OCR Scanning...");
+  async function processPipeline() {
+  overlay.style.display = 'flex';
+  updateProg(20, "OCR Scanning...");
 
-    try {
-      await initWorker();
-      const { data: { text } } = await ocrWorker.recognize(canvas);
-      const clean = text.toUpperCase().replace(/\s+/g, '');
+  try {
+    await initWorker();
+    const { data: { text } } = await ocrWorker.recognize(canvas);
+    
+    // We normalize the text: Uppercase and remove spaces
+    const clean = text.toUpperCase().replace(/\s+/g, '');
+
+    // STEP 1: Identify the Cambridge Code
+    // This regex looks for [F,M,S,W] followed by Year, Paper, and optional Question
+    // It ignores everything before the Session letter (like "7." or "2.")
+    const regex = /([FMSW])(\d{2})[\/\s-]?(\d{1,2})(?:[\/\s-]?Q(\d+))?/i;
+    const match = clean.match(regex);
+
+    if (match) {
+      state.sub = "9702"; // Default for Physics, or add (\d{4}) if you want it dynamic
+      state.seas = match[1].toLowerCase();
+      state.yr = match[2];
+      state.pap = match[3];
+      state.q = match[4] || ""; // Extracted "2" from "Q2" in your image
       
-      // STEP 1: Scan for Cambridge Code
-      // Improved Regex for slashes/spaces: 9702/S22/11
-      const regex = /(\d{4})?[^\w]*?([FMSW])(\d{2})[\/\s-]?(\d{1,2})(?:[\/\s-]?Q(\d+))?/i;
-      const match = clean.match(regex);
-
-      if (match) {
-        state.sub = match[1] || "9702";
-        state.seas = match[2].toLowerCase();
-        state.yr = match[3];
-        state.pap = match[4];
-        state.q = match[5] || "";
-        state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
-        runSearch();
-      } else {
-        throw new Error("No Paper Code Found");
-      }
-    } catch(e) {
-      alert("Error: " + e.message);
-      overlay.style.display = 'none';
+      // We also grab long words for Step 2 fallback
+      state.words = text.toLowerCase().match(/\b(\w{5,})\b/g) || [];
+      
+      runSearch();
+    } else {
+      throw new Error("Cambridge Code not found in image.");
     }
+  } catch(e) {
+    alert("Scan Failed: " + e.message);
+    overlay.style.display = 'none';
+  }
   }
 
   async function runSearch() {

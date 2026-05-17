@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Native Section Scroll Engine</title>
+  <title>Leakbridge - Full Native Proxy-Fixed Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -221,7 +221,15 @@
     
     try {
       const proxy = `https://corsproxy.io/?${encodeURIComponent(msUrl)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      
+      // FIXED ENGINE BLOCK: Disable Chunked Range Request Headers explicitly to bypassed Proxy Drops
+      const loadingTask = pdfjsLib.getDocument({
+        url: proxy,
+        disableRange: true,   // Blocks partial asset splitting requests
+        disableStream: true   // Forces a complete singular linear binary array transfer
+      });
+      
+      const pdf = await loadingTask.promise;
       
       let matchedPage = 2; 
       let foundMatch = false;
@@ -259,7 +267,7 @@
 
         const renderContext = { canvasContext: canvasCtx, viewport: viewport };
         
-        // CRITICAL FIX: Explicitly await the background render execution task to block memory leakage
+        // Explicitly await background render executions to block active thread choking
         await page.render(renderContext).promise;
 
         // 4. Asynchronous Geometric Column-Searching Filter (Bypassing cover page)
@@ -293,7 +301,7 @@
       }, 300);
 
     } catch (err) {
-      alert("Error generating document views natively. Check cross-origin availability.");
+      alert("Error generating document views natively. Verify resource exists or bypass configuration mismatch.");
       overlay.style.display = 'none';
     }
   }

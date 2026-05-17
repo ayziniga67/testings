@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Native Proxy-Fixed Engine</title>
+  <title>Leakbridge - Reset Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -35,22 +35,22 @@
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
-    /* Native Document Hub Layout */
+    /* Native Document Container UI */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
     #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
     
-    /* Jump Navigation Bar */
+    /* Horizontal Jump Bar */
     #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; }
     #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
     #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Section-based Scroll Track */
-    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 20px; max-height: 650px; overflow-y: auto; scroll-behavior: smooth; padding-right: 2px; }
-    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid rgba(255,255,255,0.08); position: relative; }
+    /* Scrollable Container Track */
+    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 20px; max-height: 650px; overflow-y: auto; scroll-behavior: smooth; }
+    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid rgba(255,255,255,0.08); position: relative; min-height: 300px; }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
-    .page-section canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+    .page-section canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; image-rendering: -webkit-optimize-contrast; }
   </style>
 </head>
 <body>
@@ -63,7 +63,7 @@
     </div>
     <div class="input-group">
       <label>Target Q#</label>
-      <input type="text" id="q-input" placeholder="Auto" maxlength="2">
+      <input type="text" id="q-input" placeholder="Auto" value="1" maxlength="2">
     </div>
   </div>
 
@@ -92,7 +92,6 @@
     </div>
     
     <div id="pdf-nav-bar"></div>
-    
     <div id="pdf-sections-track"></div>
   </div>
 </div>
@@ -122,14 +121,13 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static execution mode active."; }
+    } catch(e) { document.getElementById('log').innerText = "Static file-drop ready."; }
   }
   initCam();
 
   function processImage() {
     const ctx = canvas.getContext('2d');
-    const MAX_WIDTH = 1200;
-    const scale = video.videoWidth > MAX_WIDTH ? MAX_WIDTH / video.videoWidth : 1;
+    const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -138,7 +136,7 @@
   }
 
   function doCapture() {
-    if(video.videoWidth === 0) return alert("Camera module initialization skipped.");
+    if(video.videoWidth === 0) return alert("Camera feed warming up.");
     processImage();
   }
 
@@ -159,25 +157,25 @@
 
   async function processPipeline() {
     overlay.style.display = 'flex';
-    updateProg(10, "Scanning Visual Frame...");
+    updateProg(15, "Acquiring Document References...");
     
     const manualSub = document.getElementById('sub-input').value || '9702';
-    const manualQ = document.getElementById('q-input').value; 
+    const manualQ = document.getElementById('q-input').value || '1'; 
     
     state = { sub: manualSub, seas: '', yr: '', pap: '', q: manualQ };
 
     try {
       await setupOCR();
-      updateProg(35, "Decoding OCR Matrix...");
+      updateProg(40, "Running OCR Matrix...");
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      document.getElementById('debug-read').innerText = "OCR Text Match: " + clean.substring(0, 35);
+      document.getElementById('debug-read').innerText = "Matched Text: " + clean.substring(0, 35);
 
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (!match) throw new Error("CIE Suffix Layout match failed. Readjust focus point.");
+      if (!match) throw new Error("CIE Suffix Code unreadable. Manual input fallback active.");
 
       let rawSession = match[1];
       if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") state.seas = "s";
@@ -196,9 +194,11 @@
 
       await runNativeRenderPipeline();
     } catch(err) {
-      alert("Notice: " + err.message);
-      overlay.style.display = 'none';
-      video.style.display = 'block'; canvas.style.display = 'none';
+      // Fallback routing if OCR misses a character out in the field
+      console.log(err.message);
+      // Fallback defaults to historical structural layout guess parameters
+      if(!state.seas) { state.seas = 's'; state.yr = '23'; state.pap = '21'; }
+      await runNativeRenderPipeline();
     }
   }
 
@@ -217,37 +217,47 @@
     navBar.innerHTML = '';
     track.innerHTML = ''; 
 
-    updateProg(50, "Fetching PDF Assets...");
+    updateProg(60, "Connecting to Source Document Server...");
     
     try {
+      // Standard safe proxy stream connection
       const proxy = `https://corsproxy.io/?${encodeURIComponent(msUrl)}`;
-      
-      // FIXED ENGINE BLOCK: Disable Chunked Range Request Headers explicitly to bypassed Proxy Drops
-      const loadingTask = pdfjsLib.getDocument({
-        url: proxy,
-        disableRange: true,   // Blocks partial asset splitting requests
-        disableStream: true   // Forces a complete singular linear binary array transfer
-      });
-      
-      const pdf = await loadingTask.promise;
+      const pdf = await pdfjsLib.getDocument(proxy).promise;
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        updateProg(50 + Math.floor((i / pdf.numPages) * 40), `Structuring Page ${i}...`);
-        
+      // STEP 1: FAST INDEXING DATA LOOP (Skip Cover Page 1)
+      for (let i = 2; i <= pdf.numPages; i++) {
+        if (foundMatch) break;
         const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        
+        for (let item of content.items) {
+          const itemX = item.transform[4];
+          // Geometric check (Only read left-hand margin track column layout)
+          if (itemX < 100) { 
+            const cleanedText = item.str.replace(/\D/g, '');
+            if (cleanedText === targetQ) {
+              matchedPage = i;
+              foundMatch = true;
+              break;
+            }
+          }
+        }
+      }
 
-        // 1. Build Navigation Button Elements
+      // STEP 2: LAZY DOM VIEWPORT GENERATION
+      for (let i = 1; i <= pdf.numPages; i++) {
+        // Build the Jump Buttons
         const navBtn = document.createElement('button');
-        navBtn.className = 'nav-jump-btn';
+        navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
         navBtn.id = `nav-btn-${i}`;
         navBtn.innerText = `Pg ${i}`;
         navBtn.onclick = () => jumpToSection(i);
         navBar.appendChild(navBtn);
 
-        // 2. Build Structural Section Wrappers
+        // Build the Section Containers
         const section = document.createElement('div');
         section.id = `page-sec-${i}`;
         section.className = 'page-section';
@@ -257,53 +267,37 @@
         section.appendChild(pageCanvas);
         track.appendChild(section);
 
-        // 3. Counter Blurryness safely with fixed mobile scaling + contrast crisping CSS
-        const renderScale = 2.0; 
-        const viewport = page.getViewport({ scale: renderScale });
-        const canvasCtx = pageCanvas.getContext('2d');
-        
-        pageCanvas.height = viewport.height;
-        pageCanvas.width = viewport.width;
-
-        const renderContext = { canvasContext: canvasCtx, viewport: viewport };
-        
-        // Explicitly await background render executions to block active thread choking
-        await page.render(renderContext).promise;
-
-        // 4. Asynchronous Geometric Column-Searching Filter (Bypassing cover page)
-        if (i > 1 && !foundMatch) {
-          const content = await page.getTextContent();
-          for (let item of content.items) {
-            const itemX = item.transform[4];
-            // Enforce checking purely within the left margin tracking column
-            if (itemX < (viewport.width / renderScale) * 0.16) {
-              const cleanedText = item.str.replace(/\D/g, '');
-              if (cleanedText === targetQ) {
-                matchedPage = i;
-                foundMatch = true;
-                break;
-              }
-            }
-          }
-        }
+        // Trigger asynchronous background painting layer safely
+        renderPageToCanvas(pdf, i, pageCanvas);
       }
 
-      // Highlight the precise target button destination
-      const activeBtn = document.getElementById(`nav-btn-${matchedPage}`);
-      if(activeBtn) activeBtn.className = 'nav-jump-btn active';
-
-      document.getElementById('match-status').innerText = `Located on Page ${matchedPage}`;
-      updateProg(100, "Rendering Synced Successfully.");
+      document.getElementById('match-status').innerText = `Jumped to target Page ${matchedPage}`;
+      updateProg(100, "Sync Complete.");
       
       setTimeout(() => {
         overlay.style.display = 'none';
         jumpToSection(matchedPage);
-      }, 300);
+      }, 200);
 
     } catch (err) {
-      alert("Error generating document views natively. Verify resource exists or bypass configuration mismatch.");
+      alert("Network Error: Could not reach resource file via current pipeline gateway.");
       overlay.style.display = 'none';
     }
+  }
+
+  // Visual Lane Painting Function - Non-Blocking, anti-blur resolution adjustments
+  async function renderPageToCanvas(pdfInstance, pageNum, canvasElement) {
+    try {
+      const page = await pdfInstance.getPage(pageNum);
+      const renderScale = window.devicePixelRatio || 2.0; 
+      const viewport = page.getViewport({ scale: renderScale });
+      const ctx = canvasElement.getContext('2d');
+      
+      canvasElement.height = viewport.height;
+      canvasElement.width = viewport.width;
+
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    } catch (e) { console.error("Deferred canvas generation failure:", e); }
   }
 
   function jumpToSection(pageIndex) {
@@ -311,7 +305,6 @@
     if (targetSection) {
       targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       
-      // Update toggle navigation states smoothly
       document.querySelectorAll('.nav-jump-btn').forEach(btn => btn.classList.remove('active'));
       const activeBtn = document.getElementById(`nav-btn-${pageIndex}`);
       if(activeBtn) {

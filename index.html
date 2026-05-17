@@ -8,36 +8,29 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --warn: #facc15; --text: #f8fafc; }
+    :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Top Settings Bar */
     .settings-bar { width: 100%; background: var(--card); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-around; border: 1px solid rgba(255,255,255,0.05); }
     .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
     .settings-bar label { font-size: 0.7rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
-    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: 600; outline: none; transition: border 0.2s; }
-    .settings-bar input:focus { border-color: var(--accent); }
+    .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: 600; outline: none; }
     #sub-input { width: 80px; }
     #q-input { width: 60px; }
 
-    #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+    #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
     video, canvas { width: 100%; height: 100%; object-fit: cover; }
     
-    #overlay { 
-      position: absolute; top:0; left:0; width:100%; height:100%; 
-      background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; 
-      justify-content: center; align-items: center; z-index: 50;
-    }
+    #overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; }
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
 
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; }
     .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; }
     .btn-sub { background: #334155; color: white; font-size: 0.8rem; }
-    .btn:active { transform: scale(0.97); }
 
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
@@ -101,11 +94,9 @@
 
   async function setupOCR() {
     if (!ocrWorker) {
-      document.getElementById('log').innerText = "Loading Engine...";
       ocrWorker = await Tesseract.createWorker();
       await ocrWorker.loadLanguage('eng');
       await ocrWorker.initialize('eng');
-      document.getElementById('log').innerText = "Engine Ready";
     }
   }
   setupOCR();
@@ -115,7 +106,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Camera Denied"; }
+    } catch(e) { document.getElementById('log').innerText = "Camera access unavailable."; }
   }
   initCam();
 
@@ -155,29 +146,43 @@
     updateProg(10, "Reading Image...");
     
     const manualSub = document.getElementById('sub-input').value || '9702';
-    const manualQ = document.getElementById('q-input').value; // Read pre-typed Q number
+    const manualQ = document.getElementById('q-input').value; 
     
     state = { sub: manualSub, seas: '', yr: '', pap: '', q: manualQ };
 
     try {
       await setupOCR();
-      updateProg(40, "Extracting Code...");
+      updateProg(40, "Processing Code...");
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
-      document.getElementById('debug-read').innerText = "Read: " + text.substring(0, 40).replace(/\n/g, ' ');
-
+      // FIX 1: Enforce Strict Uppercase & strip non-essential whitespace formatting
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      
-      const regex = /([FMSW])(\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
+      document.getElementById('debug-read').innerText = "Parsed Text: " + clean.substring(0, 35);
+
+      // FIX 2: Dynamic Ultra-Robust Regex Matching Template
+      // Group 1 (Session): Matches MJ, ON, FM, M, J, W, F, S
+      // Group 2 (Year): Matches either 4 digits (2023) or 2 digits (23)
+      // Group 3 (Paper Component): Matches 1 or 2 digits (e.g. 12 or 21)
+      // Group 4 (Optional Question Marker): Matches Q1, Q2 etc if present, otherwise safe.
+      const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (!match) throw new Error("Code not detected. Try focusing on the session code (e.g., W23/12).");
+      if (!match) throw new Error("Code sequence unreadable. Ensure text matches variations of (e.g. MJ/2023/21).");
 
-      state.seas = match[1].toLowerCase();
-      state.yr = match[2];
+      // Normalize messy session strings down to PapaCambridge server formats
+      let rawSession = match[1];
+      if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") state.seas = "s";
+      else if (rawSession === "ON" || rawSession === "W") state.seas = "w";
+      else if (rawSession === "FM" || rawSession === "M" || rawSession === "F") state.seas = "m";
+      else state.seas = rawSession.toLowerCase();
+
+      // Normalize 4-digit years down to 2-digit years (e.g., '2023' -> '23')
+      let rawYear = match[2];
+      state.yr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
+      
       state.pap = match[3];
       
-      // If the camera explicitly detects a Q number in the text, override the input box
+      // If a Q marker is explicitly read from the photo, override anything manual
       if (match[4]) {
         state.q = match[4];
         document.getElementById('q-input').value = state.q; 
@@ -193,7 +198,6 @@
 
   async function runSearch() {
     const { sub, seas, yr, pap, q } = state;
-    // Default to Q1 if no question number was detected OR typed in manually
     const targetQ = q || "1"; 
     
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
@@ -227,12 +231,11 @@
         const content = await p.getTextContent();
         const txt = content.items.map(s => s.str).join(' ');
         
-        // Searches for Q number as an independent word/digit
         const regex = new RegExp(`(^|\\s|Question\\s)${qNum}(\\s|\\.|$)`, 'i');
         if (regex.test(txt)) return i;
       }
     } catch(e) { return 2; }
-    return 2; // Default to page 2 if it completely fails
+    return 2; 
   }
 
   function updateProg(pct, msg) {

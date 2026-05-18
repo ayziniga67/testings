@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - question papers </title>
+  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
-    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
-    
     :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --nav-btn: #334155; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
+    
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
+    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
@@ -64,8 +63,8 @@
 </head>
 <body>
   <div class="header">
-    <h1>Leakbridge Papers -question scanner</h1>
-    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26  </h2>
+    <h1>Leakbridge Papers</h1>
+    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
   </div>
 
 <div class="container">
@@ -143,9 +142,6 @@
   }
   setupOCR();
 
-  // Keep track of the active camera stream globally
-  let currentStream = null;
-
   async function initCam() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
@@ -154,19 +150,6 @@
     } catch(e) { document.getElementById('log').innerText = "Static file mode active."; }
   }
   initCam();
-
-      // Otherwise, request and open the camera stream (Turn Camera On)
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-      video.srcObject = stream;
-      currentStream = stream;
-      video.style.display = 'block'; canvas.style.display = 'none';
-      document.getElementById('log').innerText = "Camera active.";
-      document.getElementById('cam-toggle-btn').innerText = "CLOSE CAMERA";
-    } catch(e) { 
-      document.getElementById('log').innerText = "Static file mode active."; 
-    }
-  }
-  // Automatic call removed so it starts in a closed state!
 
   function processImage() {
     const ctx = canvas.getContext('2d');
@@ -208,7 +191,8 @@
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      
+      document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
+
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
@@ -281,9 +265,10 @@
 
     // 1. Define your sequence of text messages
     const loadingPhrases = [
-      "just wait leaking the paper...",
-      "giving it to the redditors...",
-      "ruining careers...",
+      "leaking the paper",
+      "giving the paper to redditors",
+      "ruiningcareers...",
+      
     ];
 
     let phraseIndex = 0;

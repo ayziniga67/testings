@@ -12,10 +12,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
-    
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
-    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
@@ -62,10 +58,6 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Leakbridge Papers</h1>
-    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
-  </div>
 
 <div class="container">
   <div class="settings-bar">
@@ -263,30 +255,7 @@
     track.innerHTML = ''; 
     if(scrollObserver) scrollObserver.disconnect();
 
-    // 1. Define your sequence of text messages
-    const loadingPhrases = [
-      "leaking the paper",
-      "giving the paper to redditors",
-      "ruiningcareers...",
-      
-    ];
-
-    let phraseIndex = 0;
-    
-    // 2. Set the first message immediately
-    updateProg(60, loadingPhrases[phraseIndex]);
-
-    // 3. Start a repeating timer that changes the text every 10 seconds
-    const loadingInterval = setInterval(() => {
-      // Check if the loading screen is still active
-      if (document.getElementById('overlay').style.display !== 'none') {
-        phraseIndex = (phraseIndex + 1) % loadingPhrases.length; // Move to the next text phrase
-        document.getElementById('status-txt').innerText = loadingPhrases[phraseIndex];
-      } else {
-        // If the loading is complete, clear the timer automatically so it stops running
-        clearInterval(loadingInterval);
-      }
-    }, 10000); // <-- 10000ms = 10 seconds. (Change to 5000 for every 5 seconds, etc.)
+    updateProg(60, "Requesting Remote Asset Stream...");
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);

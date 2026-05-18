@@ -280,16 +280,17 @@
         
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
-          // Target only left-aligned margins where parent question indexes reside
+          
+          // Focus exclusively on the layout lane where primary question digits are placed
           if (itemX > 15 && itemX < 95) { 
             const rawStr = item.str.trim();
             
-            // Filter out noise text (like footers, headers, page indicators, or bracketed sub-marks)
+            // Ignore noise text like "Page" or bracketed allocation scores like [4]
             if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
               continue; 
             }
 
-            // Extract pure numbers only if it forms a standalone integer match
+            // Ensure the remaining text is a pure, standalone question number match
             const cleanedText = rawStr.replace(/\D/g, '');
             if (cleanedText === targetQ && /^\d+$/.test(rawStr)) {
               matchedPage = i;

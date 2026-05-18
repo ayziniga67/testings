@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
+  <title>Leakbridge - question papers </title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -266,7 +266,7 @@
     // 1. Define your sequence of text messages
     const loadingPhrases = [
       "just wait leaking the paper...",
-      "giving it to the reddiors...",
+      "giving it to the redditors...",
       "ruining careers...",
     ];
 
@@ -285,7 +285,7 @@
         // If the loading is complete, clear the timer automatically so it stops running
         clearInterval(loadingInterval);
       }
-    }, 5000); // <-- 10000ms = 10 seconds. (Change to 5000 for every 5 seconds, etc.)
+    }, 10000); // <-- 10000ms = 10 seconds. (Change to 5000 for every 5 seconds, etc.)
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);

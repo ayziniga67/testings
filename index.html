@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
+  <title>Leakbridge - Smart Bypass Lazy Snap Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -13,7 +13,6 @@
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
 
-    /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
     .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
     .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
@@ -35,23 +34,19 @@
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
-    /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
     #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
     
-    /* Horizontal Navigation Picker Bar */
     #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
     #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Strict 1-Page Native CSS Scroll Snap-Track Viewport */
     #pdf-sections-track { width: 100%; height: 520px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); }
     .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; scroll-snap-stop: always; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
     
-    /* Strict Layout Canvas Scaling Rules */
     .page-section canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: white; image-rendering: -webkit-optimize-contrast; }
     .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
@@ -200,7 +195,6 @@
         let computedYr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
         let computedPap = match[3];
         
-        // Populate inputs so user has full edit control over OCR outputs
         document.getElementById('yr-input').value = computedYr;
         document.getElementById('seas-input').value = computedSeas;
         document.getElementById('pap-input').value = computedPap;
@@ -210,7 +204,6 @@
       console.warn("OCR non-blocking bypass active.");
     }
     
-    // Proceed to rendering using whatever current configuration dashboard state holds
     await runNativeRenderPipeline();
   }
 
@@ -236,7 +229,6 @@
   }
 
   async function runNativeRenderPipeline() {
-    // Read input values explicitly to handle camera-to-manual changes flawlessly
     const sub = document.getElementById('sub-input').value.trim();
     const yr = document.getElementById('yr-input').value.trim();
     const seas = document.getElementById('seas-input').value.trim().toLowerCase();
@@ -263,8 +255,14 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR
-      for (let i = 2; i <= currentPdf.numPages; i++) {
+      // STEP 1: SMART BYPASS TEXT SCAN MATRIX
+      // If paper is NOT component 1 (11, 12, 13), bypass the front matter instruction pages entirely!
+      let startSearchPage = 2;
+      if (pap && !pap.startsWith('1')) {
+        startSearchPage = Math.min(7, currentPdf.numPages);
+      }
+
+      for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
@@ -293,7 +291,7 @@
         });
       }, { root: track, threshold: 0.1, rootMargin: "50px 0px" });
 
-      // STEP 3: CONSTRUCT STRUCTURAL SHELLS (Page 2 optimized index layout)
+      // STEP 3: CONSTRUCT STRUCTURAL SHELLS
       for (let i = 1; i <= currentPdf.numPages; i++) {
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
@@ -327,12 +325,12 @@
     }
   }
 
-  // STEP 4: TRUE LAZY RENDER COMPLIANCE (Only builds code when frame rolls into container view)
+  // STEP 4: TRUE LAZY RENDER COMPLIANCE
   async function executeLazyRender(pageNum) {
     if (!currentPdf) return;
     try {
       const section = document.getElementById(`page-sec-${pageNum}`);
-      if (!section || section.querySelector('canvas')) return; // Already painted, escape thread safely
+      if (!section || section.querySelector('canvas')) return; 
 
       const page = await currentPdf.getPage(pageNum);
       const renderScale = window.devicePixelRatio || 2.0;

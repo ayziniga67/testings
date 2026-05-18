@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Resilient Proxy Engine</title>
+  <title>Leakbridge - Smooth Native Scroll Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -35,22 +35,25 @@
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
     #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
-    /* Native Document Container UI */
+    /* Native Document Hub Layout */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
     #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
     
-    /* Horizontal Jump Bar */
-    #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; }
+    /* Horizontal Scrolling Navigation Bar */
+    #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
     #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Scrollable Container Track */
-    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 20px; max-height: 650px; overflow-y: auto; scroll-behavior: smooth; }
-    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid rgba(255,255,255,0.08); position: relative; min-height: 300px; }
+    /* Clean Native Scroll Track - One Page per View Focus */
+    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 25px; max-height: 600px; overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; padding-right: 2px; }
+    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 4px; border: 1px solid rgba(255,255,255,0.08); position: relative; min-height: 400px; display: flex; align-items: center; justify-content: center; }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
+    
+    /* Strict Canvas Resizing Rules to prevent page leaking/doubling */
     .page-section canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; image-rendering: -webkit-optimize-contrast; }
+    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
   </style>
 </head>
 <body>
@@ -120,7 +123,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static file-drop ready."; }
+    } catch(e) { document.getElementById('log').innerText = "Static file uploaded."; }
   }
   initCam();
 
@@ -135,7 +138,7 @@
   }
 
   function doCapture() {
-    if(video.videoWidth === 0) return alert("Camera feed warming up.");
+    if(video.videoWidth === 0) return alert("Camera resource warming up.");
     processImage();
   }
 
@@ -174,7 +177,7 @@
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
-      if (!match) throw new Error("CIE Suffix Code unreadable. Manual input fallback active.");
+      if (!match) throw new Error("CIE Suffix Code unreadable.");
 
       let rawSession = match[1];
       if (rawSession === "MJ" || rawSession === "J" || rawSession === "S") state.seas = "s";
@@ -199,32 +202,30 @@
     }
   }
 
-  // --- NEW: Resilient Proxy Waterfall Function ---
   async function fetchPDFResilient(targetUrl) {
     const proxies = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
       `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
       `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
     ];
 
     for (let i = 0; i < proxies.length; i++) {
       try {
-        updateProg(50 + (i * 5), `Fetching via Node ${i + 1}...`);
         const task = pdfjsLib.getDocument(proxies[i]);
         const pdf = await task.promise;
-        return pdf; // If successful, exit loop and return the document
+        return pdf;
       } catch (e) {
-        console.warn(`Proxy ${i + 1} rejected. Trying next...`);
+        console.warn(`Proxy Node ${i + 1} bypassed.`);
       }
     }
-    throw new Error("All proxy nodes failed. Target server might be down or file doesn't exist.");
+    throw new Error("All edge gateways reporting timeout restrictions.");
   }
 
   async function runNativeRenderPipeline() {
     const { sub, seas, yr, pap, q } = state;
     const targetQ = q || "1"; 
     
-    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${supplementarySessionFix(seas)}${yr}_ms_${pap}.pdf`;
 
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;
@@ -235,16 +236,15 @@
     navBar.innerHTML = '';
     track.innerHTML = ''; 
 
-    updateProg(50, "Fetching PDF Assets...");
+    updateProg(60, "Connecting to Assets...");
     
     try {
-      // Use the new resilient fetcher instead of hardcoding one proxy
       const pdf = await fetchPDFResilient(msUrl);
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST INDEXING DATA LOOP
+      // STEP 1: FAST METADATA TEXT PASS (Find target page without painting UI)
       for (let i = 2; i <= pdf.numPages; i++) {
         if (foundMatch) break;
         const page = await pdf.getPage(i);
@@ -263,7 +263,7 @@
         }
       }
 
-      // STEP 2: LAZY DOM VIEWPORT GENERATION
+      // STEP 2: INSTANT DOM STRUCTURAL BLUEPRINT GENERATION
       for (let i = 1; i <= pdf.numPages; i++) {
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
@@ -275,41 +275,63 @@
         const section = document.createElement('div');
         section.id = `page-sec-${i}`;
         section.className = 'page-section';
-        section.innerHTML = `<div class="page-badge">PAGE ${i}</div>`;
-        
-        const pageCanvas = document.createElement('canvas');
-        section.appendChild(pageCanvas);
+        // Placeholder guarantees layout bounds stay intact before thread draws the canvas
+        section.innerHTML = `<div class="page-badge">PAGE ${i}</div><span class="loading-placeholder" id="loader-txt-${i}">Loading...</span>`;
         track.appendChild(section);
-
-        renderPageToCanvas(pdf, i, pageCanvas);
       }
 
-      document.getElementById('match-status').innerText = `Jumped to target Page ${matchedPage}`;
+      document.getElementById('match-status').innerText = `Focused Page ${matchedPage}`;
       updateProg(100, "Sync Complete.");
       
+      // Execute fast jump to target viewport shell instantly
       setTimeout(() => {
         overlay.style.display = 'none';
         jumpToSection(matchedPage);
-      }, 200);
+      }, 150);
+
+      // STEP 3: PRIORITY-FIRST SEQUENTIAL RENDERING QUEUE (Blocks canvas drops completely)
+      // Render target page first
+      await executeRenderTask(pdf, matchedPage);
+      
+      // Render remaining layout blocks sequentially to protect phone memory boundaries
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (i !== matchedPage) {
+          await executeRenderTask(pdf, i);
+        }
+      }
 
     } catch (err) {
-      alert("Network Error: " + err.message);
+      alert("Pipeline failure: " + err.message);
       overlay.style.display = 'none';
     }
   }
 
-  async function renderPageToCanvas(pdfInstance, pageNum, canvasElement) {
+  // Unified Rendering Action Execution Block
+  async function executeRenderTask(pdfInstance, pageNum) {
     try {
+      const section = document.getElementById(`page-sec-${pageNum}`);
+      if (!section || section.querySelector('canvas')) return; // Already painted
+
       const page = await pdfInstance.getPage(pageNum);
       const renderScale = window.devicePixelRatio || 2.0; 
       const viewport = page.getViewport({ scale: renderScale });
-      const ctx = canvasElement.getContext('2d');
       
-      canvasElement.height = viewport.height;
-      canvasElement.width = viewport.width;
+      const pageCanvas = document.createElement('canvas');
+      const ctx = pageCanvas.getContext('2d');
+      
+      pageCanvas.height = viewport.height;
+      pageCanvas.width = viewport.width;
 
+      // Execute thread-blocking render task to guarantee completion status
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-    } catch (e) { console.error("Deferred canvas generation failure:", e); }
+      
+      // Swap out structural loading text element for clean canvas asset natively
+      const placeholder = document.getElementById(`loader-txt-${pageNum}`);
+      if (placeholder) placeholder.remove();
+      section.appendChild(pageCanvas);
+    } catch (e) {
+      console.error(`Render dropped on page ${pageNum}:`, e);
+    }
   }
 
   function jumpToSection(pageIndex) {
@@ -324,6 +346,10 @@
         activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
+  }
+
+  function supplementarySessionFix(val) {
+    return val === 'm' ? 'feb' : val === 's' ? 'may' : 'oct';
   }
 
   function updateProg(pct, msg) {

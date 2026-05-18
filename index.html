@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Reset Engine</title>
+  <title>Leakbridge - Resilient Proxy Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -90,7 +90,6 @@
         <span id="paper-id" style="color:var(--accent); font-weight:bold;"></span>
         <span id="match-status" style="font-size:0.75rem; color:#94a3b8;"></span>
     </div>
-    
     <div id="pdf-nav-bar"></div>
     <div id="pdf-sections-track"></div>
   </div>
@@ -194,12 +193,31 @@
 
       await runNativeRenderPipeline();
     } catch(err) {
-      // Fallback routing if OCR misses a character out in the field
       console.log(err.message);
-      // Fallback defaults to historical structural layout guess parameters
       if(!state.seas) { state.seas = 's'; state.yr = '23'; state.pap = '21'; }
       await runNativeRenderPipeline();
     }
+  }
+
+  // --- NEW: Resilient Proxy Waterfall Function ---
+  async function fetchPDFResilient(targetUrl) {
+    const proxies = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+    ];
+
+    for (let i = 0; i < proxies.length; i++) {
+      try {
+        updateProg(50 + (i * 5), `Fetching via Node ${i + 1}...`);
+        const task = pdfjsLib.getDocument(proxies[i]);
+        const pdf = await task.promise;
+        return pdf; // If successful, exit loop and return the document
+      } catch (e) {
+        console.warn(`Proxy ${i + 1} rejected. Trying next...`);
+      }
+    }
+    throw new Error("All proxy nodes failed. Target server might be down or file doesn't exist.");
   }
 
   async function runNativeRenderPipeline() {
@@ -217,17 +235,16 @@
     navBar.innerHTML = '';
     track.innerHTML = ''; 
 
-    updateProg(60, "Connecting to Source Document Server...");
+    updateProg(50, "Fetching PDF Assets...");
     
     try {
-      // Standard safe proxy stream connection
-      const proxy = `https://corsproxy.io/?${encodeURIComponent(msUrl)}`;
-      const pdf = await pdfjsLib.getDocument(proxy).promise;
+      // Use the new resilient fetcher instead of hardcoding one proxy
+      const pdf = await fetchPDFResilient(msUrl);
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST INDEXING DATA LOOP (Skip Cover Page 1)
+      // STEP 1: FAST INDEXING DATA LOOP
       for (let i = 2; i <= pdf.numPages; i++) {
         if (foundMatch) break;
         const page = await pdf.getPage(i);
@@ -235,7 +252,6 @@
         
         for (let item of content.items) {
           const itemX = item.transform[4];
-          // Geometric check (Only read left-hand margin track column layout)
           if (itemX < 100) { 
             const cleanedText = item.str.replace(/\D/g, '');
             if (cleanedText === targetQ) {
@@ -249,7 +265,6 @@
 
       // STEP 2: LAZY DOM VIEWPORT GENERATION
       for (let i = 1; i <= pdf.numPages; i++) {
-        // Build the Jump Buttons
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
         navBtn.id = `nav-btn-${i}`;
@@ -257,7 +272,6 @@
         navBtn.onclick = () => jumpToSection(i);
         navBar.appendChild(navBtn);
 
-        // Build the Section Containers
         const section = document.createElement('div');
         section.id = `page-sec-${i}`;
         section.className = 'page-section';
@@ -267,7 +281,6 @@
         section.appendChild(pageCanvas);
         track.appendChild(section);
 
-        // Trigger asynchronous background painting layer safely
         renderPageToCanvas(pdf, i, pageCanvas);
       }
 
@@ -280,12 +293,11 @@
       }, 200);
 
     } catch (err) {
-      alert("Network Error: Could not reach resource file via current pipeline gateway.");
+      alert("Network Error: " + err.message);
       overlay.style.display = 'none';
     }
   }
 
-  // Visual Lane Painting Function - Non-Blocking, anti-blur resolution adjustments
   async function renderPageToCanvas(pdfInstance, pageNum, canvasElement) {
     try {
       const page = await pdfInstance.getPage(pageNum);

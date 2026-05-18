@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Smooth Native Scroll Engine</title>
+  <title>Leakbridge - 1-Page Lazy Snap Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -39,21 +39,22 @@
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
     #info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 10px; padding: 0 4px; }
     
-    /* Horizontal Scrolling Navigation Bar */
+    /* Horizontal Page Picker Bar */
     #pdf-nav-bar { width: 100%; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
     #pdf-nav-bar::-webkit-scrollbar { height: 4px; }
     #pdf-nav-bar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Clean Native Scroll Track - One Page per View Focus */
-    #pdf-sections-track { width: 100%; display: flex; flex-direction: column; gap: 25px; max-height: 600px; overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; padding-right: 2px; }
-    .page-section { width: 100%; background: #0f172a; border-radius: 8px; padding: 4px; border: 1px solid rgba(255,255,255,0.08); position: relative; min-height: 400px; display: flex; align-items: center; justify-content: center; }
+    /* Strict 1-Page CSS Snap-Track Slider Layout Container */
+    #pdf-sections-track { width: 100%; height: 500px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; }
+    .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.03); }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
     
-    /* Strict Canvas Resizing Rules to prevent page leaking/doubling */
-    .page-section canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: white; image-rendering: -webkit-optimize-contrast; }
-    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    /* Document Display Boundaries */
+    .page-section canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: white; image-rendering: -webkit-optimize-contrast; }
+    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
   </style>
 </head>
 <body>
@@ -108,6 +109,8 @@
   
   let ocrWorker = null;
   let state = {}; 
+  let currentPdf = null;
+  let scrollObserver = null;
 
   async function setupOCR() {
     if (!ocrWorker) {
@@ -123,7 +126,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
       video.srcObject = stream;
       video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static file uploaded."; }
+    } catch(e) { document.getElementById('log').innerText = "Static file mode ready."; }
   }
   initCam();
 
@@ -225,7 +228,8 @@
     const { sub, seas, yr, pap, q } = state;
     const targetQ = q || "1"; 
     
-    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${supplementarySessionFix(seas)}${yr}_ms_${pap}.pdf`;
+    // RESTORED DIRECT URL STRING MAPPING - Resolves file connection dropping bugs completely
+    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
 
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;
@@ -235,19 +239,20 @@
     
     navBar.innerHTML = '';
     track.innerHTML = ''; 
+    if(scrollObserver) scrollObserver.disconnect();
 
     updateProg(60, "Connecting to Assets...");
     
     try {
-      const pdf = await fetchPDFResilient(msUrl);
+      currentPdf = await fetchPDFResilient(msUrl);
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST METADATA TEXT PASS (Find target page without painting UI)
-      for (let i = 2; i <= pdf.numPages; i++) {
+      // STEP 1: FAST INDEX TEXT SCANNER (Find Target Question Page)
+      for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
-        const page = await pdf.getPage(i);
+        const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
         for (let item of content.items) {
@@ -263,8 +268,22 @@
         }
       }
 
-      // STEP 2: INSTANT DOM STRUCTURAL BLUEPRINT GENERATION
-      for (let i = 1; i <= pdf.numPages; i++) {
+      // STEP 2: SETUP INTERSECTION OBSERVER FOR NATIVE LAZY LOADING
+      scrollObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const pageNum = parseInt(entry.target.dataset.page);
+            // Trigger actual rendering task only when page rolls into viewport bounds
+            executeLazyRender(pageNum);
+            // Sync top slider jump button highlights dynamically during free scrolling
+            updateActiveNavHighlight(pageNum);
+          }
+        });
+      }, { root: track, threshold: 0.4 });
+
+      // STEP 3: CONSTRUCT STRUCTURAL SHELLS (Page 2 onwards optimized layout)
+      for (let i = 1; i <= currentPdf.numPages; i++) {
+        // Build Top Button Nodes
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
         navBtn.id = `nav-btn-${i}`;
@@ -272,48 +291,41 @@
         navBtn.onclick = () => jumpToSection(i);
         navBar.appendChild(navBtn);
 
+        // Build Viewport Shells
         const section = document.createElement('div');
         section.id = `page-sec-${i}`;
         section.className = 'page-section';
-        // Placeholder guarantees layout bounds stay intact before thread draws the canvas
-        section.innerHTML = `<div class="page-badge">PAGE ${i}</div><span class="loading-placeholder" id="loader-txt-${i}">Loading...</span>`;
+        section.dataset.page = i;
+        section.innerHTML = `<div class="page-badge">PAGE ${i}</div><span class="loading-placeholder" id="loader-txt-${i}">Scroll to Render</span>`;
+        
         track.appendChild(section);
+        // Hand element over to structural lazy hardware monitor
+        scrollObserver.observe(section);
       }
 
       document.getElementById('match-status').innerText = `Focused Page ${matchedPage}`;
-      updateProg(100, "Sync Complete.");
+      updateProg(100, "Ready.");
       
-      // Execute fast jump to target viewport shell instantly
       setTimeout(() => {
         overlay.style.display = 'none';
         jumpToSection(matchedPage);
       }, 150);
 
-      // STEP 3: PRIORITY-FIRST SEQUENTIAL RENDERING QUEUE (Blocks canvas drops completely)
-      // Render target page first
-      await executeRenderTask(pdf, matchedPage);
-      
-      // Render remaining layout blocks sequentially to protect phone memory boundaries
-      for (let i = 1; i <= pdf.numPages; i++) {
-        if (i !== matchedPage) {
-          await executeRenderTask(pdf, i);
-        }
-      }
-
     } catch (err) {
-      alert("Pipeline failure: " + err.message);
+      alert("Pipeline failure: URL format unresolvable or file missing.");
       overlay.style.display = 'none';
     }
   }
 
-  // Unified Rendering Action Execution Block
-  async function executeRenderTask(pdfInstance, pageNum) {
+  // STEP 4: ON-DEMAND RENDERING GATE (Only paints canvas if visible)
+  async function executeLazyRender(pageNum) {
+    if (!currentPdf) return;
     try {
       const section = document.getElementById(`page-sec-${pageNum}`);
-      if (!section || section.querySelector('canvas')) return; // Already painted
+      if (!section || section.querySelector('canvas')) return; // Already rendered, skip execution
 
-      const page = await pdfInstance.getPage(pageNum);
-      const renderScale = window.devicePixelRatio || 2.0; 
+      const page = await currentPdf.getPage(pageNum);
+      const renderScale = window.devicePixelRatio || 2.0;
       const viewport = page.getViewport({ scale: renderScale });
       
       const pageCanvas = document.createElement('canvas');
@@ -322,15 +334,14 @@
       pageCanvas.height = viewport.height;
       pageCanvas.width = viewport.width;
 
-      // Execute thread-blocking render task to guarantee completion status
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
       
-      // Swap out structural loading text element for clean canvas asset natively
+      // Clean up the placeholder layout block safely
       const placeholder = document.getElementById(`loader-txt-${pageNum}`);
       if (placeholder) placeholder.remove();
       section.appendChild(pageCanvas);
     } catch (e) {
-      console.error(`Render dropped on page ${pageNum}:`, e);
+      console.error(`Dynamic Canvas Drop Exception Page ${pageNum}:`, e);
     }
   }
 
@@ -338,18 +349,17 @@
     const targetSection = document.getElementById(`page-sec-${pageIndex}`);
     if (targetSection) {
       targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      
-      document.querySelectorAll('.nav-jump-btn').forEach(btn => btn.classList.remove('active'));
-      const activeBtn = document.getElementById(`nav-btn-${pageIndex}`);
-      if(activeBtn) {
-        activeBtn.classList.add('active');
-        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      }
+      updateActiveNavHighlight(pageIndex);
     }
   }
 
-  function supplementarySessionFix(val) {
-    return val === 'm' ? 'feb' : val === 's' ? 'may' : 'oct';
+  function updateActiveNavHighlight(pageIndex) {
+    document.querySelectorAll('.nav-jump-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`nav-btn-${pageIndex}`);
+    if(activeBtn) {
+      activeBtn.classList.add('active');
+      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
   }
 
   function updateProg(pct, msg) {

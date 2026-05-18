@@ -8,6 +8,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
+    
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
+    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
+    
     :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --nav-btn: #334155; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -58,6 +63,10 @@
   </style>
 </head>
 <body>
+  <div class="header">
+    <h1>Leakbridge Papers -question scanner</h1>
+    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26  </h2>
+  </div>
 
 <div class="container">
   <div class="settings-bar">
@@ -183,8 +192,7 @@
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-      document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
-
+      
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
 
@@ -255,7 +263,7 @@
     track.innerHTML = ''; 
     if(scrollObserver) scrollObserver.disconnect();
 
-    updateProg(60, "Requesting Remote Asset Stream...");
+    updateProg(60, "just wait leaking the paper");
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);

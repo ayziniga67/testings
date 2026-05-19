@@ -324,24 +324,30 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-            // STEP 1: FAST INDEX TEXT EXTRACTOR (With Annotation Shield & Strict Matching)
+      // STEP 1: FAST INDEX TEXT EXTRACTOR (With Annotation Shield & PDF.js Safety Guard)
       for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Build page text to run dynamic instruction layout analysis
-        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
+        // Safely build page text by filtering out structural non-text items (Prevents PDF.js Crashes)
+        const fullPageText = content.items
+          .filter(item => item && typeof item.str === 'string')
+          .map(item => item.str)
+          .join(' ')
+          .toUpperCase();
         
-        // Skip pages that are clearly setup lists, rubrics, or annotation tables
+        // Skip pages that are clearly instruction setups, rubrics, or annotation tables
         if (fullPageText.includes("ANNOTATION") || 
             fullPageText.includes("ABBREVIATION") || 
-            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
-            fullPageText.includes("GENERIC MARKING PRINCIPLE")) {
+            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS")) {
           continue;
         }
         
         for (let item of content.items) {
+          // Absolute safety guard: Skip items that don't contain valid string text
+          if (!item || typeof item.str !== 'string') continue;
+          
           const itemX = item.transform ? item.transform[4] : 0;
           
           // Clamp X to the exact vertical margin column where questions live
@@ -361,6 +367,10 @@
             // Verify the string actually begins strictly with your target question number (e.g., "6" or "6(a)")
             const cleanDigits = rawStr.replace(/\D/g, '');
             if (cleanDigits === targetQ && /^\d+/.test(rawStr) && rawStr.length <= 10) {
+              // Extra defense: If searching for 6, ensure it isn't hitting "Generic Marking Principle 6"
+              if (targetQ === "6" && rawStr.toUpperCase().includes("PRINCIPLE")) {
+                continue;
+              }
               matchedPage = i;
               foundMatch = true;
               break;

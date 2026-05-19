@@ -299,26 +299,25 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // EXPLICIT CONDITIONAL CHECK: Determine where the scanner starts
-      let startSearchPage = 2;
-      const currentPaperValue = document.getElementById('pap-input').value.trim();
-      
-      // If the paper exists and the first digit is NOT '1', jump straight to page 7
-      if (currentPaperValue && currentPaperValue.charAt(0) !== '1') {
-        startSearchPage = Math.min(7, currentPdf.numPages); 
-      }
-
-      // STEP 1: ROBUST INDEX TEXT EXTRACTOR
-      for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
+      // STEP 1: SMART-READ INDEX TEXT EXTRACTOR
+      for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
+        
+        // Combine all text on the page to check what kind of page we are looking at
+        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
+        
+        // Bypass the CAIE instruction pages safely by reading the header!
+        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || fullPageText.includes("GENERAL MARKING PRINCIPLE")) {
+            continue; // Skip this whole page and move to the next one
+        }
         
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
           // Focus exclusively on the layout lane where primary question digits are placed
-          if (itemX > 15 && itemX < 95) { 
+          if (itemX > 10 && itemX < 95) { 
             const rawStr = item.str.trim();
             
             // Ignore noise text like "Page" or bracketed allocation scores like [4]
@@ -336,7 +335,6 @@
           }
         }
       }
-
       // STEP 2: SETUP PRECISE INTERSECTION LAZY OBSERVER 
       scrollObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {

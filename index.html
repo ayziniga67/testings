@@ -340,24 +340,33 @@
         
         // Scan elements thoroughly down the entire column length
         for (let item of content.items) {
+          if (!item || typeof item.str !== 'string') continue;
+          
           const itemX = item.transform ? item.transform[4] : 0;
           
-          // Question column boundary filter
-          if (itemX < 120) { 
+          // Question column boundary filter (all primary margins start < 130)
+          if (itemX < 130) { 
             const rawStr = item.str.trim();
             
             if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
               continue;
             }
 
-            // Strips layout noise or subpart fragments to find the master question integer token
-            const cleanDigits = rawStr.replace(/\D/g, '');
+            // Create a strict regex looking for target question number prefix boundaries
+            // If targetQ is "6", it matches "6", "6(a)", "6 (b)", "6.", but rejects "61"
+            const targetNum = parseInt(targetQ);
+            const regex = new RegExp('^' + targetNum + '(?!\\d)');
             
-            // Check if the standalone question identity matches targetQ perfectly
-            if (cleanDigits === targetQ && /^\d+/.test(rawStr) && rawStr.length <= 12) {
-              matchedPage = i;
-              foundMatch = true;
-              break; // Breaks loop completely since matchedPage is confirmed
+            if (regex.test(rawStr)) {
+              // Extract the first word token to prevent random body paragraphs matching
+              const firstWord = rawStr.split(/\s+/)[0];
+              const firstWordRegex = new RegExp('^' + targetNum + '([A-Za-z]|\\(|\\.|\\)|$)');
+              
+              if (firstWordRegex.test(firstWord)) {
+                matchedPage = i;
+                foundMatch = true;
+                break; 
+              }
             }
           }
         }

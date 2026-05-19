@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - question scanner</title>
+  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -30,15 +30,15 @@
     #overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; }
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
-        
-    .btn-reset { background: #ea580c; color: white; font-size: 0.85rem; grid-column: span 2; }
+
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 400; cursor: pointer; transition: 0.2s; }
+    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; }
     .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; }
-    .btn-sub { background: #334155; color: white; font-size: 0.6rem; }
+    .btn-sub { background: #334155; color: white; font-size: 0.8rem; }
+    .btn-reset { background: #ea580c; color: white; }
 
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
-    #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
+    #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
     /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
@@ -58,16 +58,17 @@
     
     /* Strict Layout Canvas Scaling Rules */
     .page-section canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: white; image-rendering: -webkit-optimize-contrast; }
-    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 400; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
+    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
   </style>
 </head>
 <body>
+  
   <div class="header">
     <h1>Leakbridge Papers</h1>
     <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
   </div>
-  
+
 <div class="container">
   <div class="settings-bar">
     <div class="input-row">
@@ -94,8 +95,8 @@
     </div>
   </div>
 
-   <div id="media-box">
-    <video id="video" autoplay playsinline muted style="display:none;"></video>
+  <div id="media-box">
+    <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="overlay">
       <div id="status-txt" style="font-weight:700; color:var(--accent);">INITIALIZING...</div>
@@ -108,9 +109,9 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH FROM TEXT BOX</button>
+    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
-    <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">START/RESET CAMERA</button>
+    <button class="btn btn-sub btn-reset" onclick="initCam()">RESTART CAMERA</button>
   </div>
 
   <div class="viewer-wrap" id="viewer-wrap">
@@ -134,6 +135,7 @@
   let ocrWorker = null;
   let currentPdf = null;
   let scrollObserver = null;
+  let cameraStream = null;
 
   async function setupOCR() {
     if (!ocrWorker) {
@@ -144,8 +146,6 @@
   }
   setupOCR();
 
-  let cameraStream = null;
-
   async function initCam() {
     try {
       if (cameraStream) stopCam();
@@ -153,11 +153,12 @@
       video.srcObject = cameraStream;
       video.style.display = 'block'; 
       canvas.style.display = 'none';
-      document.getElementById('log').innerText = "scanner active";
+      document.getElementById('log').innerText = "Camera stream active.";
     } catch(e) { 
-      document.getElementById('log').innerText = "Camera stream blocked or unavailable."; 
+      document.getElementById('log').innerText = "Static file mode active."; 
     }
   }
+  initCam();
 
   function stopCam() {
     if (cameraStream) {
@@ -167,23 +168,14 @@
     video.srcObject = null;
   }
 
-  function resetCameraSystem() {
-    stopCam();
-    document.getElementById('viewer-wrap').style.display = 'none';
-    canvas.style.display = 'none';
-    document.getElementById('debug-read').innerText = "";
-    initCam();
-  }
-
   function processImage() {
-    if (!cameraStream) return alert("Camera feed is offline. Tap 'RESET / START CAMERA' first.");
     const ctx = canvas.getContext('2d');
     const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    stopCam();
+    stopCam(); // Shuts down device camera lens cleanly to protect resources
     
     video.style.display = 'none'; 
     canvas.style.display = 'block';
@@ -191,9 +183,7 @@
   }
 
   function doCapture() {
-    if(video.style.display === 'none' || video.videoWidth === 0) {
-      return alert("Camera track is offline. Tap 'RESET / START CAMERA' first.");
-    }
+    if(!cameraStream || video.videoWidth === 0) return alert("Camera resource warming up or offline.");
     processImage();
   }
 
@@ -205,7 +195,7 @@
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
         
-        stopCam();
+        stopCam(); // Insulate active hardware feed
         
         video.style.display = 'none'; 
         canvas.style.display = 'block';
@@ -296,9 +286,9 @@
     if(scrollObserver) scrollObserver.disconnect();
 
     const loadingPhrases = [
-      "leaking the paper...",
-      "giving the paper to redditors...",
-      "ruining careers ..."
+      "leaking the paper",
+      "giving the paper to redditors",
+      "ruining careers..."
     ];
     let phraseIndex = 0;
     
@@ -312,62 +302,59 @@
         clearInterval(loadingInterval);
       }
     }, 10000);
-    
+
     try {
       currentPdf = await fetchPDFResilient(msUrl);
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR
+      // STEP 1: SEQUENTIAL COLUMN EXTRACTION ENGINE
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
+        // Form whole-page snapshot to securely verify if it's an administrative template section
+        const fullPageText = content.items
+          .filter(item => item && typeof item.str === 'string')
+          .map(item => item.str)
+          .join(' ')
+          .toUpperCase();
         
-        // PRINCIPLE TRAP SHIELD & EARLY-PAGE BYPASS MATHEMATICS
-        if (fullPageText.includes("ANNOTATION") || 
-            fullPageText.includes("ABBREVIATION") || 
-            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
-            fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
-            fullPageText.includes("MARK SCHEME NOTES") ||
-            fullPageText.includes("GENERAL INSTRUCTIONS") ||
-            (i <= 4 && parseInt(targetQ) >= 5)) {
-          continue;
+        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || 
+            fullPageText.includes("MARK SCHEME NOTES") || 
+            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS")) {
+          continue; // Skips background noise/guidelines pages seamlessly
         }
-        
-        // Scan elements thoroughly down the entire column length
-        for (let item of content.items) {
-          if (!item || typeof item.str !== 'string') continue;
-          
-          const itemX = item.transform ? item.transform[4] : 0;
-          
-          // Question column boundary filter (all primary margins start < 130)
-          if (itemX < 130) { 
-            const rawStr = item.str.trim();
-            
-            if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
-              continue;
-            }
 
-            // Create a strict regex looking for target question number prefix boundaries
-            // If targetQ is "6", it matches "6", "6(a)", "6 (b)", "6.", but rejects "61"
-            const targetNum = parseInt(targetQ);
-            const regex = new RegExp('^' + targetNum + '(?!\\d)');
-            
-            if (regex.test(rawStr)) {
-              // Extract the first word token to prevent random body paragraphs matching
-              const firstWord = rawStr.split(/\s+/)[0];
-              const firstWordRegex = new RegExp('^' + targetNum + '([A-Za-z]|\\(|\\.|\\)|$)');
-              
-              if (firstWordRegex.test(firstWord)) {
-                matchedPage = i;
-                foundMatch = true;
-                break; 
-              }
-            }
+        // Collect all structural elements in the left-hand column zone
+        let leftColumnItems = content.items.filter(item => {
+          if (!item || typeof item.str !== 'string') return false;
+          const itemX = item.transform ? item.transform[4] : 0;
+          const itemY = item.transform ? item.transform[5] : 0;
+          return itemX > 10 && itemX < 130 && itemY > 40 && itemY < 800;
+        });
+
+        // Arrange the column array elements in geometric order (top of page to bottom)
+        leftColumnItems.sort((a, b) => {
+          const yA = a.transform ? a.transform[5] : 0;
+          const yB = b.transform ? b.transform[5] : 0;
+          return yB - yA;
+        });
+
+        // Loop and parse elements index by index
+        for (let item of leftColumnItems) {
+          const rawStr = item.str.trim();
+          if (!rawStr) continue;
+
+          // Target value boundary constraint rule (Matches "1", "1(a)" but never "11")
+          const boundaryRegex = new RegExp('^' + targetQ + '(?:\\D|$)');
+          
+          if (boundaryRegex.test(rawStr)) {
+            matchedPage = i;
+            foundMatch = true;
+            break;
           }
         }
       }
@@ -412,7 +399,7 @@
 
     } catch (err) {
       document.getElementById('match-status').innerText = "Load Failed";
-      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your input fields.`);
+      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your parameter configuration fields.`);
       overlay.style.display = 'none';
     }
   }

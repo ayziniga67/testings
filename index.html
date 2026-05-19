@@ -110,9 +110,9 @@
 
     <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH from text box</button>
+    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH FROM TEXT BOX</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
-    <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">RESET / START CAMERA</button>
+    <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">START/RESET CAMERA</button>
   </div>
 
 
@@ -156,7 +156,7 @@
       video.srcObject = cameraStream;
       video.style.display = 'block'; 
       canvas.style.display = 'none';
-      document.getElementById('log').innerText = "Live Scanner Active.";
+      document.getElementById('log').innerText = "scanner active";
     } catch(e) { 
       document.getElementById('log').innerText = "Camera stream blocked or unavailable."; 
     }
@@ -301,9 +301,9 @@
     if(scrollObserver) scrollObserver.disconnect();
 
     const loadingPhrases = [
-      "leaking the paper",
-      "giving the paper to redditors",
-      "ruiningcareers..."
+      "leaking the paper...",
+      "giving the paper to redditors...",
+      "ruining careers ..."
     ];
     let phraseIndex = 0;
     
@@ -405,7 +405,7 @@
 
     } catch (err) {
       document.getElementById('match-status').innerText = "Load Failed";
-      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your parameter configuration fields.`);
+      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your input fields.`);
       overlay.style.display = 'none';
     }
   }

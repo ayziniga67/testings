@@ -12,10 +12,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
-    
-    .header { text-align: center; margin-bottom: 20px; }
-    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
-    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
@@ -62,11 +58,6 @@
   </style>
 </head>
 <body>
-  
-  <div class="header">
-    <h1>Leakbridge Papers</h1>
-    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
-  </div>
 
 <div class="container">
   <div class="settings-bar">
@@ -261,23 +252,7 @@
     track.innerHTML = ''; 
     if(scrollObserver) scrollObserver.disconnect();
 
-    const loadingPhrases = [
-      "leaking the paper",
-      "giving the paper to redditors",
-      "ruiningcareers..."
-    ];
-    let phraseIndex = 0;
-    
-    updateProg(60, loadingPhrases[phraseIndex]);
-
-    const loadingInterval = setInterval(() => {
-      if (document.getElementById('overlay').style.display !== 'none') {
-        phraseIndex = (phraseIndex + 1) % loadingPhrases.length;
-        document.getElementById('status-txt').innerText = loadingPhrases[phraseIndex];
-      } else {
-        clearInterval(loadingInterval);
-      }
-    }, 10000);
+    updateProg(60, "Requesting Remote Asset Stream...");
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);
@@ -285,45 +260,42 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: DYNAMIC ORIENTATION-INDEPENDENT COLUMN HEADER SCANNER
+      // STEP 1: FAST INDEX TEXT EXTRACTOR WITH PRINCIPLES BYPASS
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        let columnX = null;
-        // Dynamically find where "Question" or "Qu. Number" is placed on this landscape page layout
-        for (let item of content.items) {
-          const txt = item.str.toUpperCase().replace(/\s+/g, '');
-          const itemX = item.transform ? item.transform[4] : 0;
-          
-          // Capture left side bounding box token representing the structural column header
-          if (itemX < 250 && (txt.includes("QUESTION") || txt.includes("QUNUMBER") || txt.startsWith("QU"))) {
-            columnX = itemX;
-            break;
-          }
+        // Join all text items on the page to build full string layout view
+        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
+        
+        // BYPASS TRAP: If it's an instructions page containing generic rules rubrics, skip completely
+        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || fullPageText.includes("MARKING PRINCIPLES")) {
+          continue;
         }
-
-        // AS REQUESTED: If the column header isn't found on this page, skip parsing entirely
-        if (columnX === null) continue;
-
-        // Process only items aligned vertically directly beneath our dynamic column coordinate
+        
+        // Scan elements safely on actual mark scheme grid table layout frames
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
-          // Standard layout column width tolerance boundary
-          if (Math.abs(itemX - columnX) < 45) { 
+          // Question column layouts always rest strictly against left margin bounds
+          if (itemX < 120) { 
             const rawStr = item.str.trim();
             
-            if (rawStr.toUpperCase().includes("QUESTION") || rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
-              continue; 
+            // Avoid false positives matching common structural footer/header tokens
+            if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
+              continue;
             }
 
-            const cleanedText = rawStr.replace(/\D/g, '');
-            if (cleanedText === targetQ && /^\d+$/.test(rawStr)) {
-              matchedPage = i;
-              foundMatch = true;
-              break;
+            // Verify string strictly begins with the expected question target integer
+            const numberMatch = rawStr.match(/^(\d+)/);
+            if (numberMatch && numberMatch[1] === targetQ) {
+              // Real structural index rows are short identifiers (e.g. "1", "1(a)", "2(b)(ii)"), not lengthy lines
+              if (rawStr.length <= 12) {
+                matchedPage = i;
+                foundMatch = true;
+                break;
+              }
             }
           }
         }

@@ -78,19 +78,19 @@
       </div>
       <div class="input-group">
         <label>Year</label>
-        <input type="text" id="yr-input" value="23" maxlength="2">
+        <input type="text" id="yr-input" value="21" maxlength="2">
       </div>
       <div class="input-group">
         <label>Series</label>
-        <input type="text" id="seas-input" value="s" maxlength="1">
+        <input type="text" id="seas-input" value="w" maxlength="1">
       </div>
       <div class="input-group">
         <label>Paper</label>
-        <input type="text" id="pap-input" value="21" maxlength="2">
+        <input type="text" id="pap-input" value="22" maxlength="2">
       </div>
       <div class="input-group">
         <label>Target Q</label>
-        <input type="text" id="q-input" value="1" maxlength="2">
+        <input type="text" id="q-input" value="5" maxlength="2">
       </div>
     </div>
   </div>
@@ -175,7 +175,7 @@
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    stopCam(); // Shuts down device camera lens cleanly to protect resources
+    stopCam(); 
     
     video.style.display = 'none'; 
     canvas.style.display = 'block';
@@ -195,7 +195,7 @@
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
         
-        stopCam(); // Insulate active hardware feed
+        stopCam(); 
         
         video.style.display = 'none'; 
         canvas.style.display = 'block';
@@ -309,13 +309,12 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: SEQUENTIAL COLUMN EXTRACTION ENGINE
+      // STEP 1: RESILIENT SEQUENTIAL EXTRACTION ENGINE
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Form whole-page snapshot to securely verify if it's an administrative template section
         const fullPageText = content.items
           .filter(item => item && typeof item.str === 'string')
           .map(item => item.str)
@@ -325,33 +324,39 @@
         if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || 
             fullPageText.includes("MARK SCHEME NOTES") || 
             fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS")) {
-          continue; // Skips background noise/guidelines pages seamlessly
+          continue; 
         }
 
-        // Collect all structural elements in the left-hand column zone
+        // Expanded left margin search column viewport bounds
         let leftColumnItems = content.items.filter(item => {
           if (!item || typeof item.str !== 'string') return false;
           const itemX = item.transform ? item.transform[4] : 0;
           const itemY = item.transform ? item.transform[5] : 0;
-          return itemX > 10 && itemX < 130 && itemY > 40 && itemY < 800;
+          return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
         });
 
-        // Arrange the column array elements in geometric order (top of page to bottom)
+        // Arrange elements top-to-bottom
         leftColumnItems.sort((a, b) => {
           const yA = a.transform ? a.transform[5] : 0;
           const yB = b.transform ? b.transform[5] : 0;
           return yB - yA;
         });
 
-        // Loop and parse elements index by index
         for (let item of leftColumnItems) {
           const rawStr = item.str.trim();
           if (!rawStr) continue;
 
-          // Target value boundary constraint rule (Matches "1", "1(a)" but never "11")
-          const boundaryRegex = new RegExp('^' + targetQ + '(?:\\D|$)');
+          if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
+            continue;
+          }
+
+          // Strips out nested table header keywords like "Question" to find mid-page structural cells safely
+          let cleanStr = rawStr.toUpperCase().replace(/QUESTION/g, '').trim();
+
+          // Matches your exact question inside word boundaries (catches 5, 5(a), 5 (b) but NEVER 15 or 25)
+          const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
           
-          if (boundaryRegex.test(rawStr)) {
+          if (boundaryRegex.test(cleanStr)) {
             matchedPage = i;
             foundMatch = true;
             break;
@@ -359,7 +364,7 @@
         }
       }
 
-      // STEP 2: SETUP PRECISE INTERSECTION LAZY OBSERVER 
+      // STEP 2: SETUP PRECISE INTERSECTION OBSERVER WITH HIGHER TRACK SNAP THRESHOLD
       scrollObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -368,7 +373,7 @@
             updateActiveNavHighlight(pageNum);
           }
         });
-      }, { root: track, threshold: 0.1, rootMargin: "50px 0px" });
+      }, { root: track, threshold: 0.5 }); 
 
       // STEP 3: CONSTRUCT STRUCTURAL SHELLS
       for (let i = 1; i <= currentPdf.numPages; i++) {
@@ -376,7 +381,7 @@
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
         navBtn.id = `nav-btn-${i}`;
         navBtn.innerText = `Pg ${i}`;
-        navBtn.onclick = () => jumpToSection(i);
+        navBtn.onclick = () => jumpToSection(i, true);
         navBar.appendChild(navBtn);
 
         const section = document.createElement('div');
@@ -394,7 +399,7 @@
       
       setTimeout(() => {
         overlay.style.display = 'none';
-        jumpToSection(matchedPage);
+        jumpToSection(matchedPage, false); // Snaps instantly to target page during pipeline generation
       }, 150);
 
     } catch (err) {
@@ -431,10 +436,10 @@
     }
   }
 
-  function jumpToSection(pageIndex) {
+  function jumpToSection(pageIndex, smooth = false) {
     const targetSection = document.getElementById(`page-sec-${pageIndex}`);
     if (targetSection) {
-      targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      targetSection.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
       updateActiveNavHighlight(pageIndex);
     }
   }

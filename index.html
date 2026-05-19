@@ -50,7 +50,7 @@
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Strict Native CSS Scroll Snap-Track Viewport */
+    /* Strict 1-Page Native CSS Scroll Snap-Track Viewport */
     #pdf-sections-track { width: 100%; height: 520px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); }
     .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; scroll-snap-stop: always; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
@@ -285,35 +285,37 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: LAYOUT-VERIFIED INDEX EXTRACTOR (Your Header verification logic)
+      // STEP 1: DYNAMIC ORIENTATION-INDEPENDENT COLUMN HEADER SCANNER
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Scan left margin area to see if the "Question" column header is written on this page
-        let isValidMarkSchemeTablePage = false;
+        let columnX = null;
+        // Dynamically find where "Question" or "Qu. Number" is placed on this landscape page layout
         for (let item of content.items) {
+          const txt = item.str.toUpperCase().replace(/\s+/g, '');
           const itemX = item.transform ? item.transform[4] : 0;
-          const txt = item.str.toUpperCase();
-          // Checks if "Question" or abbreviation sits in the top-left structural column location
-          if (itemX < 150 && (txt.includes("QUESTION") || txt.includes("QU. NUMBER"))) {
-            isValidMarkSchemeTablePage = true;
+          
+          // Capture left side bounding box token representing the structural column header
+          if (itemX < 250 && (txt.includes("QUESTION") || txt.includes("QUNUMBER") || txt.startsWith("QU"))) {
+            columnX = itemX;
             break;
           }
         }
 
-        // If the column header isn't found, skip scanning entirely (ignores boilerplate and cover pages)
-        if (!isValidMarkSchemeTablePage) continue;
+        // AS REQUESTED: If the column header isn't found on this page, skip parsing entirely
+        if (columnX === null) continue;
 
-        // Process table data to match target Q
+        // Process only items aligned vertically directly beneath our dynamic column coordinate
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
-          if (itemX > 15 && itemX < 95) { 
+          // Standard layout column width tolerance boundary
+          if (Math.abs(itemX - columnX) < 45) { 
             const rawStr = item.str.trim();
             
-            if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
+            if (rawStr.toUpperCase().includes("QUESTION") || rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
               continue; 
             }
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
+  <title>Leakbridge - question scanner</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -110,7 +110,7 @@
 
     <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
+    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH from text box</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
     <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">RESET / START CAMERA</button>
   </div>

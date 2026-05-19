@@ -31,7 +31,8 @@
     #overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; }
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
-
+        
+    .btn-reset { background: #ea580c; color: white; font-size: 0.85rem; grid-column: span 2; }
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
     .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; }
     .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; }
@@ -95,8 +96,8 @@
     </div>
   </div>
 
-  <div id="media-box">
-    <video id="video" autoplay playsinline muted></video>
+   <div id="media-box">
+    <video id="video" autoplay playsinline muted style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="overlay">
       <div id="status-txt" style="font-weight:700; color:var(--accent);">INITIALIZING...</div>
@@ -107,11 +108,13 @@
   <div id="log">Ready to Scan Paper</div>
   <div id="debug-read"></div>
 
-  <div class="btn-grid">
+    <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
     <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
+    <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">RESET / START CAMERA</button>
   </div>
+
 
   <div class="viewer-wrap" id="viewer-wrap">
     <div id="info-bar">
@@ -144,27 +147,58 @@
   }
   setupOCR();
 
+    let cameraStream = null;
+
   async function initCam() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-      video.srcObject = stream;
-      video.style.display = 'block'; canvas.style.display = 'none';
-    } catch(e) { document.getElementById('log').innerText = "Static file mode active."; }
+      if (cameraStream) stopCam();
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+      video.srcObject = cameraStream;
+      video.style.display = 'block'; 
+      canvas.style.display = 'none';
+      document.getElementById('log').innerText = "Live Scanner Active.";
+    } catch(e) { 
+      document.getElementById('log').innerText = "Camera stream blocked or unavailable."; 
+    }
   }
-  initCam();
 
-  function processImage() {
+  function stopCam() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    video.srcObject = null;
+  }
+
+  function resetCameraSystem() {
+    stopCam();
+    document.getElementById('viewer-wrap').style.display = 'none';
+    canvas.style.display = 'none';
+    document.getElementById('debug-read').innerText = "";
+    initCam();
+  }
+
+
+    function processImage() {
+    if (!cameraStream) return alert("Camera feed is offline. Tap 'RESET / START CAMERA' first.");
     const ctx = canvas.getContext('2d');
     const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    video.style.display = 'none'; canvas.style.display = 'block';
+    
+    stopCam(); // Shuts down camera lens power
+    
+    video.style.display = 'none'; 
+    canvas.style.display = 'block';
     processPipeline();
   }
 
-  function doCapture() {
-    if(video.videoWidth === 0) return alert("Camera resource warming up.");
+
+    function doCapture() {
+    if(video.style.display === 'none' || video.videoWidth === 0) {
+      return alert("Camera track is offline. Tap 'RESET / START CAMERA' first.");
+    }
     processImage();
   }
 
@@ -175,7 +209,11 @@
       img.onload = () => {
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
-        video.style.display = 'none'; canvas.style.display = 'block';
+        
+        stopCam(); // Shuts down camera lens power
+        
+        video.style.display = 'none'; 
+        canvas.style.display = 'block';
         processPipeline();
       };
       img.src = ev.target.result;

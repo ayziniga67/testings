@@ -299,33 +299,51 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: SMART-READ INDEX TEXT EXTRACTOR
+      let questionZoneStarted = false;
+
+      // STEP 1: DYNAMIC QUESTION-ZONE INDEX EXTRACTOR
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Combine all text on the page to check what kind of page we are looking at
+        // Flatten all text on the page to analyze its structural nature
         const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
         
-        // Bypass the CAIE instruction pages safely by reading the header!
-        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || fullPageText.includes("GENERAL MARKING PRINCIPLE")) {
-            continue; // Skip this whole page and move to the next one
+        // 1. Instantly bypass known boilerplate instruction layouts safely
+        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || 
+            fullPageText.includes("MARKING PRINCIPLES") || 
+            fullPageText.includes("INSTRUCTIONS TO EXAMINERS")) {
+          continue; // Move to the next page immediately
         }
-        
+
+        // 2. If the zone isn't active yet, look for layout indicators that questions have begun
+        if (!questionZoneStarted) {
+          const hasValidMarginIndicators = content.items.some(item => {
+            const itemX = item.transform ? item.transform[4] : 0;
+            // Check if there are pure standalone layout integers sitting in the margin lanes
+            return (itemX > 15 && itemX < 95) && /^\d+$/.test(item.str.trim());
+          });
+
+          if (hasValidMarginIndicators || fullPageText.includes("QUESTION")) {
+            questionZoneStarted = true; // The marking content has officially started!
+          }
+        }
+
+        // 3. Skip evaluation if we haven't officially arrived at the question papers yet
+        if (!questionZoneStarted) continue;
+
+        // 4. Scan the active question zone for your precise Target Q matching coordinates
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
-          // Focus exclusively on the layout lane where primary question digits are placed
-          if (itemX > 10 && itemX < 95) { 
+          if (itemX > 15 && itemX < 95) { 
             const rawStr = item.str.trim();
             
-            // Ignore noise text like "Page" or bracketed allocation scores like [4]
             if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
               continue; 
             }
 
-            // Ensure the remaining text is a pure, standalone question number match
             const cleanedText = rawStr.replace(/\D/g, '');
             if (cleanedText === targetQ && /^\d+$/.test(rawStr)) {
               matchedPage = i;

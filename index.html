@@ -324,42 +324,46 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR WITH PRINCIPLES BYPASS
-      for (let i = 2; i <= currentPdf.numPages; i++) {
+            // STEP 1: FAST INDEX TEXT EXTRACTOR (With Annotation Shield & Strict Matching)
+      for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Join all text items on the page to build full string layout view
+        // Build page text to run dynamic instruction layout analysis
         const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
         
-        // BYPASS TRAP: If it's an instructions page containing generic rules rubrics, skip completely
-        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || fullPageText.includes("MARKING PRINCIPLES")) {
+        // Skip pages that are clearly setup lists, rubrics, or annotation tables
+        if (fullPageText.includes("ANNOTATION") || 
+            fullPageText.includes("ABBREVIATION") || 
+            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
+            fullPageText.includes("GENERIC MARKING PRINCIPLE")) {
           continue;
         }
         
-        // Scan elements safely on actual mark scheme grid table layout frames
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
-          // Question column layouts always rest strictly against left margin bounds
-          if (itemX < 120) { 
+          // Clamp X to the exact vertical margin column where questions live
+          if (itemX > 15 && itemX < 95) { 
             const rawStr = item.str.trim();
             
-            // Avoid false positives matching common structural footer/header tokens
-            if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
+            // Bypass page numbers, score margins, or bracketed symbols like [6]
+            if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
+              continue; 
+            }
+
+            // Reject decimals like "6.1" or "6.2" (common in instruction lists)
+            if (rawStr.includes(".")) {
               continue;
             }
 
-            // Verify string strictly begins with the expected question target integer
-            const numberMatch = rawStr.match(/^(\d+)/);
-            if (numberMatch && numberMatch[1] === targetQ) {
-              // Real structural index rows are short identifiers (e.g. "1", "1(a)", "2(b)(ii)"), not lengthy lines
-              if (rawStr.length <= 12) {
-                matchedPage = i;
-                foundMatch = true;
-                break;
-              }
+            // Verify the string actually begins strictly with your target question number (e.g., "6" or "6(a)")
+            const cleanDigits = rawStr.replace(/\D/g, '');
+            if (cleanDigits === targetQ && /^\d+/.test(rawStr) && rawStr.length <= 10) {
+              matchedPage = i;
+              foundMatch = true;
+              break;
             }
           }
         }

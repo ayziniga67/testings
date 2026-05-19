@@ -320,27 +320,27 @@
       let foundMatch = false;
       const startSearchPage = 1; // Explicit declaration fixes the crash pipeline
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR (With Annotation Shield & PDF.js Safety Guard)
-      // STEP 1: FAST INDEX TEXT EXTRACTOR (With Multi-Layer Shield & Coordinate Clamping)
+      // STEP 1: FAST INDEX TEXT EXTRACTOR (With Hard Math Early-Page Bypass)
       for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Safely build page text by filtering out structural non-text items (Prevents PDF.js Crashes)
+        // Safely build page text by filtering out structural non-text items
         const fullPageText = content.items
           .filter(item => item && typeof item.str === 'string')
           .map(item => item.str)
           .join(' ')
           .toUpperCase();
         
-        // Skip pages that are clearly instruction setups, rubrics, front matter, or principles
+        // Skip pages that are rubrics, principles, OR if it's page <= 4 and we are looking for Q6+
         if (fullPageText.includes("ANNOTATION") || 
             fullPageText.includes("ABBREVIATION") || 
             fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
             fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
             fullPageText.includes("MARK SCHEME NOTES") ||
-            fullPageText.includes("GENERAL INSTRUCTIONS")) {
+            fullPageText.includes("GENERAL INSTRUCTIONS") ||
+            (i <= 4 && parseInt(targetQ) >= 5)) { // <-- Your hard math bypass rule
           continue;
         }
         
@@ -364,7 +364,7 @@
               continue;
             }
 
-            // Verify the string actually begins strictly with your target question number (e.g., "6" or "6(a)")
+            // Verify the string actually begins strictly with your target question number
             const cleanDigits = rawStr.replace(/\D/g, '');
             if (cleanDigits === targetQ && /^\d+/.test(rawStr) && rawStr.length <= 10) {
               matchedPage = i;

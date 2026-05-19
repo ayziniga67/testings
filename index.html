@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Leakbridge - Full Viewport Lazy Snap Engine</title>
+  <title>Leakbridge - question scanner</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -30,15 +30,15 @@
     #overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; }
     .progress-wrap { width: 70%; height: 6px; background: #334155; border-radius: 10px; margin-top: 15px; overflow: hidden; }
     #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
-
+        
+    .btn-reset { background: #ea580c; color: white; font-size: 0.85rem; grid-column: span 2; }
     .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 400; cursor: pointer; transition: 0.2s; }
     .btn-main { background: var(--accent); color: #0f172a; grid-column: span 2; font-size: 1rem; }
-    .btn-sub { background: #334155; color: white; font-size: 0.8rem; }
-    .btn-reset { background: #ea580c; color: white; }
+    .btn-sub { background: #334155; color: white; font-size: 0.6rem; }
 
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
-    #debug-read { font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
+    #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
     /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
@@ -58,17 +58,16 @@
     
     /* Strict Layout Canvas Scaling Rules */
     .page-section canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; background: white; image-rendering: -webkit-optimize-contrast; }
-    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
+    .loading-placeholder { font-size: 0.8rem; color: #475569; font-weight: 400; text-transform: uppercase; letter-spacing: 0.5px; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
   </style>
 </head>
 <body>
-  
   <div class="header">
     <h1>Leakbridge Papers</h1>
     <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
   </div>
-
+  
 <div class="container">
   <div class="settings-bar">
     <div class="input-row">
@@ -78,25 +77,25 @@
       </div>
       <div class="input-group">
         <label>Year</label>
-        <input type="text" id="yr-input" value="21" maxlength="2">
+        <input type="text" id="yr-input" value="23" maxlength="2">
       </div>
       <div class="input-group">
         <label>Series</label>
-        <input type="text" id="seas-input" value="w" maxlength="1">
+        <input type="text" id="seas-input" value="s" maxlength="1">
       </div>
       <div class="input-group">
         <label>Paper</label>
-        <input type="text" id="pap-input" value="22" maxlength="2">
+        <input type="text" id="pap-input" value="21" maxlength="2">
       </div>
       <div class="input-group">
         <label>Target Q</label>
-        <input type="text" id="q-input" value="5" maxlength="2">
+        <input type="text" id="q-input" value="1" maxlength="2">
       </div>
     </div>
   </div>
 
-  <div id="media-box">
-    <video id="video" autoplay playsinline muted></video>
+   <div id="media-box">
+    <video id="video" autoplay playsinline muted style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="overlay">
       <div id="status-txt" style="font-weight:700; color:var(--accent);">INITIALIZING...</div>
@@ -109,9 +108,9 @@
 
   <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
-    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH DIRECT</button>
+    <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH FROM TEXT BOX</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
-    <button class="btn btn-sub btn-reset" onclick="initCam()">RESTART CAMERA</button>
+    <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">START/RESET CAMERA</button>
   </div>
 
   <div class="viewer-wrap" id="viewer-wrap">
@@ -135,7 +134,6 @@
   let ocrWorker = null;
   let currentPdf = null;
   let scrollObserver = null;
-  let cameraStream = null;
 
   async function setupOCR() {
     if (!ocrWorker) {
@@ -146,6 +144,8 @@
   }
   setupOCR();
 
+  let cameraStream = null;
+
   async function initCam() {
     try {
       if (cameraStream) stopCam();
@@ -153,12 +153,11 @@
       video.srcObject = cameraStream;
       video.style.display = 'block'; 
       canvas.style.display = 'none';
-      document.getElementById('log').innerText = "Camera stream active.";
+      document.getElementById('log').innerText = "scanner active";
     } catch(e) { 
-      document.getElementById('log').innerText = "Static file mode active."; 
+      document.getElementById('log').innerText = "Camera stream blocked or unavailable."; 
     }
   }
-  initCam();
 
   function stopCam() {
     if (cameraStream) {
@@ -168,14 +167,23 @@
     video.srcObject = null;
   }
 
+  function resetCameraSystem() {
+    stopCam();
+    document.getElementById('viewer-wrap').style.display = 'none';
+    canvas.style.display = 'none';
+    document.getElementById('debug-read').innerText = "";
+    initCam();
+  }
+
   function processImage() {
+    if (!cameraStream) return alert("Camera feed is offline. Tap 'RESET / START CAMERA' first.");
     const ctx = canvas.getContext('2d');
     const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
     canvas.width = video.videoWidth * scale;
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    stopCam(); 
+    stopCam();
     
     video.style.display = 'none'; 
     canvas.style.display = 'block';
@@ -183,7 +191,9 @@
   }
 
   function doCapture() {
-    if(!cameraStream || video.videoWidth === 0) return alert("Camera resource warming up or offline.");
+    if(video.style.display === 'none' || video.videoWidth === 0) {
+      return alert("Camera track is offline. Tap 'RESET / START CAMERA' first.");
+    }
     processImage();
   }
 
@@ -195,7 +205,7 @@
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
         
-        stopCam(); 
+        stopCam();
         
         video.style.display = 'none'; 
         canvas.style.display = 'block';
@@ -286,9 +296,9 @@
     if(scrollObserver) scrollObserver.disconnect();
 
     const loadingPhrases = [
-      "leaking the paper",
-      "giving the paper to redditors",
-      "ruining careers..."
+      "leaking the paper...",
+      "giving the paper to redditors...",
+      "ruining careers ..."
     ];
     let phraseIndex = 0;
     
@@ -302,14 +312,14 @@
         clearInterval(loadingInterval);
       }
     }, 10000);
-
+    
     try {
       currentPdf = await fetchPDFResilient(msUrl);
       
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // STEP 1: RESILIENT SEQUENTIAL EXTRACTION ENGINE
+      // STEP 1: SEQUENCE COLUMN EXTRACTION ENGINE (Collects and scans left column sequential list)
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
@@ -321,39 +331,37 @@
           .join(' ')
           .toUpperCase();
         
-        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || 
-            fullPageText.includes("MARK SCHEME NOTES") || 
-            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS")) {
-          continue; 
+        // Skip common intro sections, rubrics, and annotation guidelines
+        if (fullPageText.includes("ANNOTATION") || 
+            fullPageText.includes("ABBREVIATION") || 
+            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
+            fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
+            fullPageText.includes("MARK SCHEME NOTES") ||
+            fullPageText.includes("GENERAL INSTRUCTIONS") ||
+            (i <= 4 && parseInt(targetQ) >= 5)) {
+          continue;
         }
 
-        // Expanded left margin search column viewport bounds
-        let leftColumnItems = content.items.filter(item => {
+        // Gather all elements inside the primary left column lanes (< 160 width bound on x-axis)
+        const leftColumnList = content.items.filter(item => {
           if (!item || typeof item.str !== 'string') return false;
           const itemX = item.transform ? item.transform[4] : 0;
           const itemY = item.transform ? item.transform[5] : 0;
+          // Filter out header/footer noise on the y-axis (stays inside body)
           return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
         });
 
-        // Arrange elements top-to-bottom
-        leftColumnItems.sort((a, b) => {
-          const yA = a.transform ? a.transform[5] : 0;
-          const yB = b.transform ? b.transform[5] : 0;
-          return yB - yA;
-        });
-
-        for (let item of leftColumnItems) {
+        // Scan the collected column items list one by one
+        for (let item of leftColumnList) {
           const rawStr = item.str.trim();
           if (!rawStr) continue;
-
+          
           if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
             continue;
           }
 
-          // Strips out nested table header keywords like "Question" to find mid-page structural cells safely
+          // Strip headers out of the string before matching to catch dynamic table components
           let cleanStr = rawStr.toUpperCase().replace(/QUESTION/g, '').trim();
-
-          // Matches your exact question inside word boundaries (catches 5, 5(a), 5 (b) but NEVER 15 or 25)
           const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
           
           if (boundaryRegex.test(cleanStr)) {
@@ -364,7 +372,7 @@
         }
       }
 
-      // STEP 2: SETUP PRECISE INTERSECTION OBSERVER WITH HIGHER TRACK SNAP THRESHOLD
+      // STEP 2: SETUP PRECISE INTERSECTION LAZY OBSERVER 
       scrollObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -373,7 +381,7 @@
             updateActiveNavHighlight(pageNum);
           }
         });
-      }, { root: track, threshold: 0.5 }); 
+      }, { root: track, threshold: 0.1, rootMargin: "50px 0px" });
 
       // STEP 3: CONSTRUCT STRUCTURAL SHELLS
       for (let i = 1; i <= currentPdf.numPages; i++) {
@@ -381,7 +389,7 @@
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
         navBtn.id = `nav-btn-${i}`;
         navBtn.innerText = `Pg ${i}`;
-        navBtn.onclick = () => jumpToSection(i, true);
+        navBtn.onclick = () => jumpToSection(i);
         navBar.appendChild(navBtn);
 
         const section = document.createElement('div');
@@ -399,12 +407,12 @@
       
       setTimeout(() => {
         overlay.style.display = 'none';
-        jumpToSection(matchedPage, false); // Snaps instantly to target page during pipeline generation
+        jumpToSection(matchedPage);
       }, 150);
 
     } catch (err) {
       document.getElementById('match-status').innerText = "Load Failed";
-      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your parameter configuration fields.`);
+      alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your input fields.`);
       overlay.style.display = 'none';
     }
   }
@@ -436,10 +444,10 @@
     }
   }
 
-  function jumpToSection(pageIndex, smooth = false) {
+  function jumpToSection(pageIndex) {
     const targetSection = document.getElementById(`page-sec-${pageIndex}`);
     if (targetSection) {
-      targetSection.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+      targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       updateActiveNavHighlight(pageIndex);
     }
   }

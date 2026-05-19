@@ -17,7 +17,6 @@
     .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
     .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
-
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
     .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
@@ -39,7 +38,7 @@
     .btn-sub { background: #334155; color: white; font-size: 0.6rem; }
 
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
-        #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
+    #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
     /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
@@ -69,7 +68,6 @@
     <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
   </div>
   
-
 <div class="container">
   <div class="settings-bar">
     <div class="input-row">
@@ -96,7 +94,7 @@
     </div>
   </div>
 
-   <div id="media-box">
+  <div id="media-box">
     <video id="video" autoplay playsinline muted style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="overlay">
@@ -108,13 +106,12 @@
   <div id="log">Ready to Scan Paper</div>
   <div id="debug-read"></div>
 
-    <div class="btn-grid">
+  <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
     <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH FROM TEXT BOX</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
     <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">START/RESET CAMERA</button>
   </div>
-
 
   <div class="viewer-wrap" id="viewer-wrap">
     <div id="info-bar">
@@ -147,7 +144,7 @@
   }
   setupOCR();
 
-    let cameraStream = null;
+  let cameraStream = null;
 
   async function initCam() {
     try {
@@ -178,8 +175,7 @@
     initCam();
   }
 
-
-    function processImage() {
+  function processImage() {
     if (!cameraStream) return alert("Camera feed is offline. Tap 'RESET / START CAMERA' first.");
     const ctx = canvas.getContext('2d');
     const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
@@ -187,15 +183,14 @@
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    stopCam(); // Shuts down camera lens power
+    stopCam(); 
     
     video.style.display = 'none'; 
     canvas.style.display = 'block';
     processPipeline();
   }
 
-
-    function doCapture() {
+  function doCapture() {
     if(video.style.display === 'none' || video.videoWidth === 0) {
       return alert("Camera track is offline. Tap 'RESET / START CAMERA' first.");
     }
@@ -210,7 +205,7 @@
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
         
-        stopCam(); // Shuts down camera lens power
+        stopCam(); 
         
         video.style.display = 'none'; 
         canvas.style.display = 'block';
@@ -323,6 +318,7 @@
       
       let matchedPage = 2; 
       let foundMatch = false;
+      const startSearchPage = 1; // Explicit declaration fixes the crash pipeline
 
       // STEP 1: FAST INDEX TEXT EXTRACTOR (With Annotation Shield & PDF.js Safety Guard)
       for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
@@ -345,7 +341,6 @@
         }
         
         for (let item of content.items) {
-          // Absolute safety guard: Skip items that don't contain valid string text
           if (!item || typeof item.str !== 'string') continue;
           
           const itemX = item.transform ? item.transform[4] : 0;
@@ -418,6 +413,7 @@
       }, 150);
 
     } catch (err) {
+      console.error(err); // Output hidden script issues directly to window console log
       document.getElementById('match-status').innerText = "Load Failed";
       alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your input fields.`);
       overlay.style.display = 'none';

@@ -12,6 +12,11 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
     .container { width: 100%; max-width: 450px; }
+    
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
+    .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
+
 
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
@@ -58,6 +63,11 @@
   </style>
 </head>
 <body>
+  <div class="header">
+    <h1>Leakbridge Papers</h1>
+    <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
+  </div>
+  
 
 <div class="container">
   <div class="settings-bar">
@@ -252,7 +262,23 @@
     track.innerHTML = ''; 
     if(scrollObserver) scrollObserver.disconnect();
 
-    updateProg(60, "Requesting Remote Asset Stream...");
+    const loadingPhrases = [
+      "leaking the paper",
+      "giving the paper to redditors",
+      "ruiningcareers..."
+    ];
+    let phraseIndex = 0;
+    
+    updateProg(60, loadingPhrases[phraseIndex]);
+
+    const loadingInterval = setInterval(() => {
+      if (document.getElementById('overlay').style.display !== 'none') {
+        phraseIndex = (phraseIndex + 1) % loadingPhrases.length;
+        document.getElementById('status-txt').innerText = loadingPhrases[phraseIndex];
+      } else {
+        clearInterval(loadingInterval);
+      }
+    }, 10000);
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);

@@ -17,7 +17,6 @@
     .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
     .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
-
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
     .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
@@ -51,7 +50,7 @@
     .nav-jump-btn { background: var(--nav-btn); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; flex-shrink: 0; transition: 0.2s; }
     .nav-jump-btn.active { background: var(--accent); color: #0f172a; }
 
-    /* Strict 1-Page Native CSS Scroll Snap-Track Viewport */
+    /* Strict Native CSS Scroll Snap-Track Viewport */
     #pdf-sections-track { width: 100%; height: 520px; display: flex; flex-direction: column; gap: 0px; overflow-y: scroll; scroll-snap-type: y mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); }
     .page-section { width: 100%; height: 100%; min-height: 100%; scroll-snap-align: start; scroll-snap-stop: always; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; background: #0f172a; overflow: hidden; }
     .page-badge { position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.85); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; z-index: 10; border: 1px solid rgba(255,255,255,0.05); }
@@ -193,7 +192,7 @@
       const { data: { text } } = await ocrWorker.recognize(canvas);
       
       const clean = text.toUpperCase().replace(/\s+/g, '');
-         document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
+      document.getElementById('debug-read').innerText = "OCR String: " + clean.substring(0, 35);
 
       const regex = /([FMSW]|MJ|ON|FM)(?:\/)?(\d{4}|\d{2})[\/|I1\s-]?(\d{1,2})(?:[\/|I1\s-]?Q(\d+))?/i;
       const match = clean.match(regex);
@@ -210,7 +209,6 @@
         let computedYr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
         let computedPap = match[3];
         
-        // Populate inputs so user has full edit control over OCR outputs
         document.getElementById('yr-input').value = computedYr;
         document.getElementById('seas-input').value = computedSeas;
         document.getElementById('pap-input').value = computedPap;
@@ -220,7 +218,6 @@
       console.warn("OCR non-blocking bypass active.");
     }
     
-    // Proceed to rendering using whatever current configuration dashboard state holds
     await runNativeRenderPipeline();
   }
 
@@ -246,7 +243,6 @@
   }
 
   async function runNativeRenderPipeline() {
-    // Read input values explicitly to handle camera-to-manual changes flawlessly
     const sub = document.getElementById('sub-input').value.trim();
     const yr = document.getElementById('yr-input').value.trim();
     const seas = document.getElementById('seas-input').value.trim().toLowerCase();
@@ -268,30 +264,20 @@
     const loadingPhrases = [
       "leaking the paper",
       "giving the paper to redditors",
-      "ruiningcareers...",
-      
+      "ruiningcareers..."
     ];
     let phraseIndex = 0;
     
-    // 2. Set the first message immediately
     updateProg(60, loadingPhrases[phraseIndex]);
 
-    // 3. Start a repeating timer that changes the text every 10 seconds
     const loadingInterval = setInterval(() => {
-      // Check if the loading screen is still active
       if (document.getElementById('overlay').style.display !== 'none') {
-        phraseIndex = (phraseIndex + 1) % loadingPhrases.length; // Move to the next text phrase
+        phraseIndex = (phraseIndex + 1) % loadingPhrases.length;
         document.getElementById('status-txt').innerText = loadingPhrases[phraseIndex];
       } else {
-        // If the loading is complete, clear the timer automatically so it stops running
         clearInterval(loadingInterval);
       }
     }, 10000);
-
-    
-    
-    // 2. Set the first message immediately
-    updateProg(60, loadingPhrases[phraseIndex]);
     
     try {
       currentPdf = await fetchPDFResilient(msUrl);
@@ -299,41 +285,28 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      let questionZoneStarted = false;
-
-      // STEP 1: DYNAMIC QUESTION-ZONE INDEX EXTRACTOR
+      // STEP 1: LAYOUT-VERIFIED INDEX EXTRACTOR (Your Header verification logic)
       for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Flatten all text on the page to analyze its structural nature
-        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
-        
-        // 1. Instantly bypass known boilerplate instruction layouts safely
-        if (fullPageText.includes("GENERIC MARKING PRINCIPLE") || 
-            fullPageText.includes("MARKING PRINCIPLES") || 
-            fullPageText.includes("INSTRUCTIONS TO EXAMINERS")) {
-          continue; // Move to the next page immediately
-        }
-
-        // 2. If the zone isn't active yet, look for layout indicators that questions have begun
-        if (!questionZoneStarted) {
-          const hasValidMarginIndicators = content.items.some(item => {
-            const itemX = item.transform ? item.transform[4] : 0;
-            // Check if there are pure standalone layout integers sitting in the margin lanes
-            return (itemX > 15 && itemX < 95) && /^\d+$/.test(item.str.trim());
-          });
-
-          if (hasValidMarginIndicators || fullPageText.includes("QUESTION")) {
-            questionZoneStarted = true; // The marking content has officially started!
+        // Scan left margin area to see if the "Question" column header is written on this page
+        let isValidMarkSchemeTablePage = false;
+        for (let item of content.items) {
+          const itemX = item.transform ? item.transform[4] : 0;
+          const txt = item.str.toUpperCase();
+          // Checks if "Question" or abbreviation sits in the top-left structural column location
+          if (itemX < 150 && (txt.includes("QUESTION") || txt.includes("QU. NUMBER"))) {
+            isValidMarkSchemeTablePage = true;
+            break;
           }
         }
 
-        // 3. Skip evaluation if we haven't officially arrived at the question papers yet
-        if (!questionZoneStarted) continue;
+        // If the column header isn't found, skip scanning entirely (ignores boilerplate and cover pages)
+        if (!isValidMarkSchemeTablePage) continue;
 
-        // 4. Scan the active question zone for your precise Target Q matching coordinates
+        // Process table data to match target Q
         for (let item of content.items) {
           const itemX = item.transform ? item.transform[4] : 0;
           
@@ -353,6 +326,7 @@
           }
         }
       }
+
       // STEP 2: SETUP PRECISE INTERSECTION LAZY OBSERVER 
       scrollObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -364,7 +338,7 @@
         });
       }, { root: track, threshold: 0.1, rootMargin: "50px 0px" });
 
-      // STEP 3: CONSTRUCT STRUCTURAL SHELLS (Page 2 optimized index layout)
+      // STEP 3: CONSTRUCT STRUCTURAL SHELLS
       for (let i = 1; i <= currentPdf.numPages; i++) {
         const navBtn = document.createElement('button');
         navBtn.className = 'nav-jump-btn' + (i === matchedPage ? ' active' : '');
@@ -398,12 +372,12 @@
     }
   }
 
-  // STEP 4: TRUE LAZY RENDER COMPLIANCE (Only builds code when frame rolls into container view)
+  // STEP 4: TRUE LAZY RENDER COMPLIANCE
   async function executeLazyRender(pageNum) {
     if (!currentPdf) return;
     try {
       const section = document.getElementById(`page-sec-${pageNum}`);
-      if (!section || section.querySelector('canvas')) return; // Already painted, escape thread safely
+      if (!section || section.querySelector('canvas')) return;
 
       const page = await currentPdf.getPage(pageNum);
       const renderScale = window.devicePixelRatio || 2.0;

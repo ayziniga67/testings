@@ -17,6 +17,7 @@
     .header h1 { font-family: 'Montserrat', sans-serif; font-size: 1.4rem; letter-spacing: 2px; font-weight:400 }
     .header h2 { font-family: 'Montserrat', sans-serif; font-size: 0.8rem; letter-spacing: 2px; font-weight:200 }
 
+
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
     .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
@@ -38,7 +39,7 @@
     .btn-sub { background: #334155; color: white; font-size: 0.6rem; }
 
     #log { font-size: 0.8rem; color: #94a3b8; text-align: center; margin-bottom: 5px; }
-    #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
+        #debug-read { display: none; font-size: 0.6rem; color: #475569; text-align: center; margin-bottom: 10px; font-family: monospace; overflow: hidden; height: 12px; }
     
     /* Native Document Display Workspace */
     .viewer-wrap { display: none; width: 100%; margin-top: 10px; background: var(--card); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 12px; }
@@ -68,6 +69,7 @@
     <h2>only takes code like: ON/2021/22/Q5,S23/13/Q26</h2>
   </div>
   
+
 <div class="container">
   <div class="settings-bar">
     <div class="input-row">
@@ -94,7 +96,7 @@
     </div>
   </div>
 
-  <div id="media-box">
+   <div id="media-box">
     <video id="video" autoplay playsinline muted style="display:none;"></video>
     <canvas id="canvas" style="display:none;"></canvas>
     <div id="overlay">
@@ -106,12 +108,13 @@
   <div id="log">Ready to Scan Paper</div>
   <div id="debug-read"></div>
 
-  <div class="btn-grid">
+    <div class="btn-grid">
     <button class="btn btn-main" onclick="doCapture()">CAPTURE & ANALYZE</button>
     <button class="btn btn-sub" onclick="runNativeRenderPipeline()">FETCH FROM TEXT BOX</button>
     <label class="btn btn-sub" style="text-align:center; cursor:pointer;">UPLOAD<input type="file" hidden accept="image/*" onchange="doUpload(event)"></label>
     <button class="btn btn-sub btn-reset" onclick="resetCameraSystem()">START/RESET CAMERA</button>
   </div>
+
 
   <div class="viewer-wrap" id="viewer-wrap">
     <div id="info-bar">
@@ -144,7 +147,7 @@
   }
   setupOCR();
 
-  let cameraStream = null;
+    let cameraStream = null;
 
   async function initCam() {
     try {
@@ -175,7 +178,8 @@
     initCam();
   }
 
-  function processImage() {
+
+    function processImage() {
     if (!cameraStream) return alert("Camera feed is offline. Tap 'RESET / START CAMERA' first.");
     const ctx = canvas.getContext('2d');
     const scale = video.videoWidth > 1200 ? 1200 / video.videoWidth : 1;
@@ -183,14 +187,15 @@
     canvas.height = video.videoHeight * scale;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    stopCam(); 
+    stopCam(); // Shuts down camera lens power
     
     video.style.display = 'none'; 
     canvas.style.display = 'block';
     processPipeline();
   }
 
-  function doCapture() {
+
+    function doCapture() {
     if(video.style.display === 'none' || video.videoWidth === 0) {
       return alert("Camera track is offline. Tap 'RESET / START CAMERA' first.");
     }
@@ -205,7 +210,7 @@
         canvas.width = img.width; canvas.height = img.height;
         canvas.getContext('2d').drawImage(img, 0, 0);
         
-        stopCam(); 
+        stopCam(); // Shuts down camera lens power
         
         video.style.display = 'none'; 
         canvas.style.display = 'block';
@@ -284,7 +289,7 @@
     const targetQ = document.getElementById('q-input').value.trim() || "1";
 
     const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-    
+
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;
     
@@ -318,22 +323,17 @@
       
       let matchedPage = 2; 
       let foundMatch = false;
-      const startSearchPage = 1; // Explicit declaration fixes the crash pipeline
 
-      // STEP 1: FAST INDEX TEXT EXTRACTOR (With Hard Math Early-Page Bypass)
-      for (let i = startSearchPage; i <= currentPdf.numPages; i++) {
+      // STEP 1: FAST INDEX TEXT EXTRACTOR WITH PRINCIPLES BYPASS
+      for (let i = 2; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Safely build page text by filtering out structural non-text items
-        const fullPageText = content.items
-          .filter(item => item && typeof item.str === 'string')
-          .map(item => item.str)
-          .join(' ')
-          .toUpperCase();
+        // Join all text items on the page to build full string layout view
+        const fullPageText = content.items.map(item => item.str).join(' ').toUpperCase();
         
-        // Skip pages that are rubrics, principles, OR if it's page <= 4 and we are looking for Q6+
+        // BYPASS TRAP: If it's an instructions page containing generic rules rubrics, skip completely
         if (fullPageText.includes("ANNOTATION") || 
             fullPageText.includes("ABBREVIATION") || 
             fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
@@ -344,32 +344,28 @@
           continue;
         }
         
+        // Scan elements safely on actual mark scheme grid table layout frames
         for (let item of content.items) {
-          if (!item || typeof item.str !== 'string') continue;
-          
           const itemX = item.transform ? item.transform[4] : 0;
-          const itemY = item.transform ? item.transform[5] : 0;
           
-          // Clamp X to the margin lane and Y to completely exclude top headers / bottom footer page numbers
-          if (itemX > 15 && itemX < 95 && itemY > 55 && itemY < 785) { 
+          // Question column layouts always rest strictly against left margin bounds
+          if (itemX < 120) { 
             const rawStr = item.str.trim();
             
-            // Bypass page numbers, score margins, or bracketed symbols like [6]
-            if (rawStr.toUpperCase().includes("PAGE") || rawStr.includes("[") || rawStr.includes("]")) {
-              continue; 
-            }
-
-            // Reject decimals like "6.1" or "6.2" (common in instruction lists)
-            if (rawStr.includes(".")) {
+            // Avoid false positives matching common structural footer/header tokens
+            if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
               continue;
             }
 
-            // Verify the string actually begins strictly with your target question number
-            const cleanDigits = rawStr.replace(/\D/g, '');
-            if (cleanDigits === targetQ && /^\d+/.test(rawStr) && rawStr.length <= 10) {
-              matchedPage = i;
-              foundMatch = true;
-              break;
+                        // Robust check: Look for the target question number as the first standalone integer token in the element
+            const numberMatch = rawStr.match(/\b(\d+)\b/);
+            if (numberMatch && numberMatch[1] === targetQ) {
+              // Ensure we aren't matching random multi-line paragraphs in the margin
+              if (rawStr.length <= 15) {
+                matchedPage = i;
+                foundMatch = true;
+                break;
+              }
             }
           }
         }
@@ -414,7 +410,6 @@
       }, 150);
 
     } catch (err) {
-      console.error(err); // Output hidden script issues directly to window console log
       document.getElementById('match-status').innerText = "Load Failed";
       alert(`Could not open document.\n\nGenerated Link Attempted:\n${msUrl}\n\nPlease check your input fields.`);
       overlay.style.display = 'none';

@@ -283,7 +283,25 @@
     const pap = document.getElementById('pap-input').value.trim();
     const targetQ = document.getElementById('q-input').value.trim() || "1";
 
-    const msUrl = `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+    // 1. ADD THIS LOOKUP DICTIONARY FOR XTREMEPAPERS FOLDERS
+    const subjectFolders = {
+      "9709": "Mathematics%20(9709)",
+      "9702": "Physics%20(9702)",
+      "9701": "Chemistry%20(9701)",
+      "9700": "Biology%20(9700)",
+      "9618": "Computer%20Science%20(9618)",
+      "9708": "Economics%20(9708)",
+      "9706": "Accounting%20(9706)",
+      "9609": "Business%20(9609)"
+    };
+
+    // Get the folder name dynamically, fallback to guessing the format if not in the list
+    const folderName = subjectFolders[sub] || `${sub}`; 
+
+    // 2. UPDATE THE URL TO USE THE DYNAMIC FOLDER NAME
+    const msUrl = `https://papers.xtremepape.rs/CAIE/AS%20and%20A%20Level/${folderName}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+
+    
 
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;

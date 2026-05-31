@@ -421,53 +421,60 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-      // SEQUENCE COLUMN EXTRACTION ENGINE
-      for (let i = 2; i <= currentPdf.numPages; i++) {
-        if (foundMatch) break;
-        const page = await currentPdf.getPage(i);
-        const content = await page.getTextContent();
-        
-        const fullPageText = content.items
-          .filter(item => item && typeof item.str === 'string')
-          .map(item => item.str)
-          .join(' ')
-          .toUpperCase();
-        
-        if (fullPageText.includes("ANNOTATION") || 
-            fullPageText.includes("ABBREVIATION") || 
-            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
-            fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
-            fullPageText.includes("MARK SCHEME NOTES") ||
-            fullPageText.includes("GENERAL INSTRUCTIONS") ||
-            (i <= 4 && parseInt(targetQ) >= 5)) {
-          continue;
-        }
+     // ========================================================
+// REFIRED STEP 1: SEQUENCE COLUMN EXTRACTION ENGINE
+// ========================================================
+for (let i = 2; i <= currentPdf.numPages; i++) {
+  if (foundMatch) break;
+  const page = await currentPdf.getPage(i);
+  const content = await page.getTextContent();
+  
+  const fullPageText = content.items
+    .filter(item => item && typeof item.str === 'string')
+    .map(item => item.str)
+    .join(' ')
+    .toUpperCase();
+  
+  // Hard bypass for instruction / rubric / metadata pages
+  if (fullPageText.includes("ANNOTATION") || 
+      fullPageText.includes("ABBREVIATION") || 
+      fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
+      fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
+      fullPageText.includes("MARK SCHEME NOTES") ||
+      fullPageText.includes("GENERAL INSTRUCTIONS")) {
+    continue; 
+  }
 
-        const leftColumnList = content.items.filter(item => {
-          if (!item || typeof item.str !== 'string') return false;
-          const itemX = item.transform ? item.transform[4] : 0;
-          const itemY = item.transform ? item.transform[5] : 0;
-          return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
-        });
+  // Filter items occupying the true left question column lane
+  const leftColumnList = content.items.filter(item => {
+    if (!item || typeof item.str !== 'string') return false;
+    const itemX = item.transform ? item.transform[4] : 0;
+    const itemY = item.transform ? item.transform[5] : 0;
+    return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
+  });
 
-        for (let item of leftColumnList) {
-          const rawStr = item.str.trim();
-          if (!rawStr) continue;
-          
-          if (/page|mark|total|subject|comment|cambridge/i.test(rawStr)) {
-            continue;
-          }
+  for (let item of leftColumnList) {
+    const rawStr = item.str.trim().toUpperCase();
+    if (!rawStr) continue;
+    
+    // STRICT EXCLUSION SHIELD: Ignore columns containing rubric/header artifacts
+    if (/PAGE|MARK|TOTAL|SUBJECT|COMMENT|CAMBRIDGE|PRINCIPLE|GUIDELINE/i.test(rawStr)) {
+      continue;
+    }
 
-          let cleanStr = rawStr.toUpperCase().replace(/QUESTION/g, '').trim();
-          const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
-          
-          if (boundaryRegex.test(cleanStr)) {
-            matchedPage = i;
-            foundMatch = true;
-            break;
-          }
-        }
-      }
+    // Isolate the question string
+    let cleanStr = rawStr.replace(/QUESTION/g, '').trim();
+    
+    // Strict regex bound matching to prevent partial matches (e.g., matching Q1 inside Q12)
+    const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
+    
+    if (boundaryRegex.test(cleanStr)) {
+      matchedPage = i;
+      foundMatch = true;
+      break;
+    }
+  }
+}
 
       // SETUP INTERSECTION OBSERVER
       scrollObserver = new IntersectionObserver((entries) => {

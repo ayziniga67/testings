@@ -433,7 +433,6 @@ for (let i = 2; i <= currentPdf.numPages; i++) {
     .filter(item => item && typeof item.str === 'string')
     .map(item => item.str)
     .join(' ')
-    .toUpperCase();
   
   // Hard bypass for instruction / rubric / metadata pages
   if (fullPageText.includes("ANNOTATION") || 
@@ -443,7 +442,7 @@ for (let i = 2; i <= currentPdf.numPages; i++) {
       fullPageText.includes("MARK SCHEME NOTES") ||
       fullPageText.includes("Science-Specific Marking Principles") ||
       fullPageText.includes("Examiners") ||
-      !fullPageText.includes("QUESTIONS") ||
+      !fullPageText.includes("Questions") ||
       fullPageText.includes("GENERAL INSTRUCTIONS")) {
     continue; 
   }

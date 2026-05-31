@@ -6,7 +6,7 @@
   <title>Leakbridge - question scanner</title>
   <script src="https://unpkg.com/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght=300;400;600;700&display=swap" rel="stylesheet">
   <style>
     :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --nav-btn: #334155; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
@@ -20,8 +20,9 @@
     /* Expanded Structural Input Controls Dashboard */
     .settings-bar { width: 100%; background: var(--card); padding: 10px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
     .input-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; }
-    .input-group { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .input-group { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
     .settings-bar label { font-size: 0.65rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-example { font-size: 0.55rem; color: #64748b; font-weight: 400; margin-bottom: 2px; }
     .settings-bar input { background: #0f172a; border: 1px solid #334155; color: white; padding: 6px 4px; border-radius: 6px; text-align: center; font-weight: 600; font-size: 0.85rem; width: 100%; outline: none; }
 
     #media-box { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
@@ -73,22 +74,27 @@
     <div class="input-row">
       <div class="input-group">
         <label>Subject</label>
+        <span class="input-example">e.g. 9702</span>
         <input type="text" id="sub-input" value="9702" maxlength="4">
       </div>
       <div class="input-group">
         <label>Year</label>
+        <span class="input-example">e.g. 23</span>
         <input type="text" id="yr-input" value="23" maxlength="2">
       </div>
       <div class="input-group">
         <label>Series</label>
+        <span class="input-example">e.g. s</span>
         <input type="text" id="seas-input" value="s" maxlength="1">
       </div>
       <div class="input-group">
         <label>Paper</label>
+        <span class="input-example">e.g. 21</span>
         <input type="text" id="pap-input" value="21" maxlength="2">
       </div>
       <div class="input-group">
         <label>Target Q</label>
+        <span class="input-example">e.g. 5</span>
         <input type="text" id="q-input" value="1" maxlength="2">
       </div>
     </div>
@@ -243,10 +249,16 @@
         let computedYr = rawYear.length === 4 ? rawYear.substring(2) : rawYear;
         let computedPap = match[3];
         
+        // Explicitly clear and overwrite fields to prevent visual appending artifacts
         document.getElementById('yr-input').value = computedYr;
         document.getElementById('seas-input').value = computedSeas;
         document.getElementById('pap-input').value = computedPap;
-        if (match[4]) document.getElementById('q-input').value = match[4];
+        
+        if (match[4]) {
+          const qInput = document.getElementById('q-input');
+          qInput.value = ""; 
+          qInput.value = match[4].trim();
+        }
       }
     } catch(err) {
       console.warn("OCR non-blocking bypass active.");
@@ -283,7 +295,34 @@
     const pap = document.getElementById('pap-input').value.trim();
     const targetQ = document.getElementById('q-input').value.trim() || "1";
 
-    // 1. ADD THIS LOOKUP DICTIONARY FOR XTREMEPAPERS FOLDERS
+    // STAGE 0: CLIENT-SIDE INPUT VALIDATION ENGINE
+    if (!/^\d{4}$/.test(sub)) {
+      alert("Validation Error:\nSubject must be exactly 4 numeric digits (e.g., 9702).");
+      overlay.style.display = 'none';
+      return;
+    }
+    if (!/^\d{2}$/.test(yr)) {
+      alert("Validation Error:\nYear must be exactly 2 numeric digits (e.g., 23).");
+      overlay.style.display = 'none';
+      return;
+    }
+    if (!/^[swm]$/i.test(seas)) {
+      alert("Validation Error:\nSeries must be a single letter: 's' (Summer), 'w' (Winter), or 'm' (March).");
+      overlay.style.display = 'none';
+      return;
+    }
+    if (!/^\d{2}$/.test(pap)) {
+      alert("Validation Error:\nPaper must be exactly 2 numeric digits (e.g., 21).");
+      overlay.style.display = 'none';
+      return;
+    }
+    if (!/^\d{1,2}$/.test(targetQ) || parseInt(targetQ, 10) <= 0) {
+      alert("Validation Error:\nTarget Question must be a positive integer value between 1 and 99.");
+      overlay.style.display = 'none';
+      return;
+    }
+
+    // Dynamic XtremePapers Index Mapper
     const subjectFolders = {
       "9709": "Mathematics%20(9709)",
       "9702": "Physics%20(9702)",
@@ -295,13 +334,8 @@
       "9609": "Business%20(9609)"
     };
 
-    // Get the folder name dynamically, fallback to guessing the format if not in the list
     const folderName = subjectFolders[sub] || `${sub}`; 
-
-    // 2. UPDATE THE URL TO USE THE DYNAMIC FOLDER NAME
     const msUrl = `https://papers.xtremepape.rs/CAIE/AS%20and%20A%20Level/${folderName}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-
-    
 
     document.getElementById('viewer-wrap').style.display = 'block';
     document.getElementById('paper-id').innerText = `${sub} | ${seas.toUpperCase()}${yr} | P${pap} | Q${targetQ}`;

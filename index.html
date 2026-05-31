@@ -442,6 +442,8 @@ for (let i = 2; i <= currentPdf.numPages; i++) {
       fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
       fullPageText.includes("MARK SCHEME NOTES") ||
       fullPageText.includes("Science-Specific Marking Principles") ||
+      fullPageText.includes("Examiners") ||
+      !fullPageText.includes("QUESTIONS") ||
       fullPageText.includes("GENERAL INSTRUCTIONS")) {
     continue; 
   }

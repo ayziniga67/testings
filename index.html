@@ -154,24 +154,18 @@
       }
     },
     {
-      name: "PapersDaddy",
+      // ==========================================
+  // CENTRALIZABLE FALLBACK PAPERS REGISTRY
+  // =========================================
+    {
+      name: "CIENotes",
       buildUrl: (sub, yr, seas, pap) => {
-        const subjectNames = {
-          "9702": "physics-9702",
-          "9709": "mathematics-9709",
-          "9701": "chemistry-9701",
-          "9700": "biology-9700",
-          "9618": "computer-science-9618"
-        };
-        const seasonNames = { "m": "march", "s": "june", "w": "november" };
-        
-        const folderName = subjectNames[sub] || `subject-${sub}`;
-        const fullYear = `20${yr}`;
-        const fullSeason = seasonNames[seas] || "march";
-        
-        return `https://www.papersdaddy.com/cambridge/a-level/${folderName}/${fullYear}-${fullSeason}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+        // Generates: https://www.cienotes.com/wp-content/uploads/2018/06/9608_s15_qp_12.pdf
+        // Note: Changed '_ms_' to '_qp_' to target Question Papers as per your link.
+        return `https://www.cienotes.com/wp-content/uploads/2018/06/${sub}_${seas.toLowerCase()}${yr}_qp_${pap}.pdf`;
       }
     }
+  ];
   ];
 
   const video = document.getElementById('video');

@@ -137,40 +137,39 @@
   // ==========================================
   const paperSources = [
     {
-      name: "XtremePapers",
+      name: "GCEGuide",
       buildUrl: (sub, yr, seas, pap) => {
-        const subjectFolders = {
-          "9709": "Mathematics%20(9709)",
-          "9702": "Physics%20(9702)",
-          "9701": "Chemistry%20(9701)",
-          "9700": "Biology%20(9700)",
-          "9618": "Computer%20Science%20(9618)",
-          "9708": "Economics%20(9708)",
-          "9706": "Accounting%20(9706)",
-          "9609": "Business%20(9609)"
-        };
-        const folderName = subjectFolders[sub] || sub;
-        return `https://papers.xtremepape.rs/CAIE/AS%20and%20A%20Level/${folderName}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+      // Dictionary maps your subject codes to their exact folder names
+      const subjectFolders = {
+         "9702": "physics-(9702)",
+         "9709": "mathematics-(9709)",
+         "9701": "chemistry-(9701)",
+         "9618": "computer-science-(9618)"
+       };
+    
+       const folder = subjectFolders[sub] || `subject-(${sub})`;
+       const fullYear = `20${yr}`;
+    
+       // Generates: https://papers.gceguide.cc/a-levels/physics-(9702)/2022/9702_s22_ms_42.pdf
+        return `https://papers.gceguide.cc/a-levels/${folder}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
       }
     },
     {
-      name: "PapersDaddy",
-      buildUrl: (sub, yr, seas, pap) => {
-        const subjectNames = {
-          "9702": "physics-9702",
-          "9709": "mathematics-9709",
-          "9701": "chemistry-9701",
-          "9700": "biology-9700",
-          "9618": "computer-science-9618"
-        };
-        const seasonNames = { "m": "march", "s": "june", "w": "november" };
-        
-        const folderName = subjectNames[sub] || `subject-${sub}`;
-        const fullYear = `20${yr}`;
-        const fullSeason = seasonNames[seas] || "march";
-        
-        return `https://www.papersdaddy.com/cambridge/a-level/${folderName}/${fullYear}-${fullSeason}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-      }
+  name: "BestExamHelp",
+  buildUrl: (sub, yr, seas, pap) => {
+    const subjectNames = {
+      "9702": "physics",
+      "9709": "mathematics",
+      "9701": "chemistry",
+      "9618": "computer-science"
+    };
+    
+    const name = subjectNames[sub] || "subject";
+    const fullYear = `20${yr}`;
+    
+    // Generates: https://bestexamhelp.com/exam/cambridge-international-a-level/physics-9702/2022/9702_s22_ms_42.pdf
+    return `https://bestexamhelp.com/exam/cambridge-international-a-level/${name}-${sub}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+  }
     }
   ];
 

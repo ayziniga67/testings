@@ -74,13 +74,13 @@
     <div class="input-row">
       <div class="input-group">
         <label>Subject</label>
-        <span class="input-example">e.g. 9702</span>
-        <input type="text" id="sub-input" value="9702" maxlength="4">
+        <span class="input-example">e.g. 9709</span>
+        <input type="text" id="sub-input" value="9709" maxlength="4">
       </div>
       <div class="input-group">
         <label>Year</label>
-        <span class="input-example">e.g. 23</span>
-        <input type="text" id="yr-input" value="23" maxlength="2">
+        <span class="input-example">e.g. 25</span>
+        <input type="text" id="yr-input" value="25" maxlength="2">
       </div>
       <div class="input-group">
         <label>Series</label>
@@ -89,8 +89,8 @@
       </div>
       <div class="input-group">
         <label>Paper</label>
-        <span class="input-example">e.g. 21</span>
-        <input type="text" id="pap-input" value="21" maxlength="2">
+        <span class="input-example">e.g. 12</span>
+        <input type="text" id="pap-input" value="12" maxlength="2">
       </div>
       <div class="input-group">
         <label>Target Q</label>
@@ -137,39 +137,31 @@
   // ==========================================
   const paperSources = [
     {
-      name: "GCEGuide",
+      name: "BestExamHelp",
       buildUrl: (sub, yr, seas, pap) => {
-      // Dictionary maps your subject codes to their exact folder names
-      const subjectFolders = {
-         "9702": "physics-(9702)",
-         "9709": "mathematics-(9709)",
-         "9701": "chemistry-(9701)",
-         "9618": "computer-science-(9618)"
-       };
-    
-       const folder = subjectFolders[sub] || `subject-(${sub})`;
-       const fullYear = `20${yr}`;
-    
-       // Generates: https://papers.gceguide.cc/a-levels/physics-(9702)/2022/9702_s22_ms_42.pdf
-        return `https://papers.gceguide.cc/a-levels/${folder}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+        const subjectNames = {
+          "9709": "mathematics",
+          "9702": "physics",
+          "9701": "chemistry",
+          "9700": "biology",
+          "9618": "computer-science",
+          "9708": "economics",
+          "9706": "accounting",
+          "9609": "business"
+        };
+        
+        const folderName = subjectNames[sub] || "subject";
+        const fullYear = `20${yr}`;
+        
+        // Note: Change 'ms' to 'qp' if you want Question Papers instead of Mark Schemes!
+        return `https://bestexamhelp.com/exam/cambridge-international-a-level/${folderName}-${sub}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
       }
     },
     {
-  name: "BestExamHelp",
-  buildUrl: (sub, yr, seas, pap) => {
-    const subjectNames = {
-      "9702": "physics",
-      "9709": "mathematics",
-      "9701": "chemistry",
-      "9618": "computer-science"
-    };
-    
-    const name = subjectNames[sub] || "subject";
-    const fullYear = `20${yr}`;
-    
-    // Generates: https://bestexamhelp.com/exam/cambridge-international-a-level/physics-9702/2022/9702_s22_ms_42.pdf
-    return `https://bestexamhelp.com/exam/cambridge-international-a-level/${name}-${sub}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-  }
+      name: "PapaCambridge",
+      buildUrl: (sub, yr, seas, pap) => {
+        return `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+      }
     }
   ];
 
@@ -179,7 +171,7 @@
   const prog = document.getElementById('progress-fill');
   
   let ocrWorker = null;
-  let currentPdf = null;
+  let currentPdf = null; // KEEP THIS LET HERE
   let scrollObserver = null;
 
   async function setupOCR() {
@@ -391,7 +383,7 @@
     }, 10000);
     
     // CASCADING MULTI-SOURCE ACQUISITION SYSTEM
-        currentPdf = null;
+    currentPdf = null; // BUG FIXED: REMOVED "let"
     let successfulUrl = "";
 
     for (let i = 0; i < paperSources.length; i++) {
@@ -420,61 +412,56 @@
       let matchedPage = 2; 
       let foundMatch = false;
 
-     // ========================================================
-// REFIRED STEP 1: SEQUENCE COLUMN EXTRACTION ENGINE
-// ========================================================
-for (let i = 2; i <= currentPdf.numPages; i++) {
-  if (foundMatch) break;
-  const page = await currentPdf.getPage(i);
-  const content = await page.getTextContent();
-  
-  const fullPageText = content.items
-    .filter(item => item && typeof item.str === 'string')
-    .map(item => item.str)
-    .join(' ')
-  
-  // Hard bypass for instruction / rubric / metadata pages
-  if (fullPageText.includes("ANNOTATION") || 
-      fullPageText.includes("ABBREVIATION") || 
-      fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
-      fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
-      fullPageText.includes("MARK SCHEME NOTES") ||
-      fullPageText.includes("Principles") ||
-      fullPageText.includes("Examiners") ||
-      fullPageText.includes("GENERAL INSTRUCTIONS")) {
-    continue; 
-  }
+      // ========================================================
+      // STEP 1: SEQUENCE COLUMN EXTRACTION ENGINE
+      // ========================================================
+      for (let i = 2; i <= currentPdf.numPages; i++) {
+        if (foundMatch) break;
+        const page = await currentPdf.getPage(i);
+        const content = await page.getTextContent();
+        
+        const fullPageText = content.items
+          .filter(item => item && typeof item.str === 'string')
+          .map(item => item.str)
+          .join(' ')
+          .toUpperCase(); // Left uppercase to ensure font styling doesn't break scanner
+        
+        // Hard bypass for instruction / rubric / metadata pages
+        if (fullPageText.includes("ANNOTATION") || 
+            fullPageText.includes("ABBREVIATION") || 
+            fullPageText.includes("SPECIFIC MARKING INSTRUCTIONS") ||
+            fullPageText.includes("GENERIC MARKING PRINCIPLE") ||
+            fullPageText.includes("MARK SCHEME NOTES") ||
+            fullPageText.includes("GENERAL INSTRUCTIONS")) {
+          continue; 
+        }
 
-  // Filter items occupying the true left question column lane
-  const leftColumnList = content.items.filter(item => {
-    if (!item || typeof item.str !== 'string') return false;
-    const itemX = item.transform ? item.transform[4] : 0;
-    const itemY = item.transform ? item.transform[5] : 0;
-    return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
-  });
+        const leftColumnList = content.items.filter(item => {
+          if (!item || typeof item.str !== 'string') return false;
+          const itemX = item.transform ? item.transform[4] : 0;
+          const itemY = item.transform ? item.transform[5] : 0;
+          return itemX >= 0 && itemX < 160 && itemY > 30 && itemY < 810;
+        });
 
-  for (let item of leftColumnList) {
-    const rawStr = item.str.trim().toUpperCase();
-    if (!rawStr) continue;
-    
-    // STRICT EXCLUSION SHIELD: Ignore columns containing rubric/header artifacts
-    if (/PAGE|MARK|TOTAL|SUBJECT|COMMENT|CAMBRIDGE|PRINCIPLE|GUIDELINE/i.test(rawStr)) {
-      continue;
-    }
+        for (let item of leftColumnList) {
+          const rawStr = item.str.trim().toUpperCase();
+          if (!rawStr) continue;
+          
+          // STRICT EXCLUSION SHIELD: Ignore columns containing rubric/header artifacts
+          if (/PAGE|MARK|TOTAL|SUBJECT|COMMENT|CAMBRIDGE|PRINCIPLE|GUIDELINE/i.test(rawStr)) {
+            continue;
+          }
 
-    // Isolate the question string
-    let cleanStr = rawStr.replace(/QUESTION/g, '').trim();
-    
-    // Strict regex bound matching to prevent partial matches (e.g., matching Q1 inside Q12)
-    const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
-    
-    if (boundaryRegex.test(cleanStr)) {
-      matchedPage = i;
-      foundMatch = true;
-      break;
-    }
-  }
-}
+          let cleanStr = rawStr.replace(/QUESTION/g, '').trim();
+          const boundaryRegex = new RegExp('(^|\\b)' + targetQ + '(\\b|\\(|\\)|$)');
+          
+          if (boundaryRegex.test(cleanStr)) {
+            matchedPage = i;
+            foundMatch = true;
+            break;
+          }
+        }
+      }
 
       // SETUP INTERSECTION OBSERVER
       scrollObserver = new IntersectionObserver((entries) => {

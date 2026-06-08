@@ -135,40 +135,51 @@
   // ==========================================
   // CENTRALIZABLE FALLBACK PAPERS REGISTRY
   // ==========================================
-  // ==========================================
-  // CENTRALIZABLE FALLBACK PAPERS REGISTRY
-  // ==========================================
+ 
   const paperSources = [
-    {
-      name: "XtraPapers",
+   {
+     name: "XtraPapers",
       buildUrl: (sub, yr, seas, pap) => {
-        // Maps the subject code to the folder name
-        const subjectNames = {
-          "9709": "mathematics",
-          "9702": "physics",
-          "9701": "chemistry",
-          "9700": "biology",
-          "9618": "computer-science",
-          "9708": "economics",
-          "9706": "accounting",
-          "9609": "business"
-        };
-        
-        // Maps the season letter to the full word used in their folders
-        const seasonNames = {
-          "m": "march",
-          "s": "may-june",
-          "w": "october-november" 
-        };
-        
-        const folderName = subjectNames[sub] || "subject";
-        const seasonWord = seasonNames[seas] || seas;
-        const fullYear = `20${yr}`;
-        
-        // Generates: https://xtrapapers.co/papers/caie/as-and-a-level/physics-9702/2025-march/9702_m25_ms_52.pdf
-        return `https://xtrapapers.co/papers/caie/as-and-a-level/${folderName}-${sub}/${fullYear}-${seasonWord}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+       // 1. EXPANDED SUBJECT DICTIONARY (A-Level, IGCSE, & O-Level)
+      const subjectNames = {
+         // A-Levels (9000 series)
+         "9709": "mathematics", "9702": "physics", "9701": "chemistry", "9700": "biology",
+         "9618": "computer-science", "9708": "economics", "9706": "accounting", "9609": "business",
+      
+        // IGCSEs (0000 series)
+         "0580": "mathematics", "0625": "physics", "0620": "chemistry", "0610": "biology",
+         "0478": "computer-science", "0455": "economics", "0452": "accounting", "0985": "accounting",
+         "0450": "business-studies",
+      
+        // O-Levels (7000 / 5000 / 4000 / 2000 series)
+         "7707": "accounting", "4024": "mathematics-d", "5054": "physics", "5070": "chemistry",
+         "5090": "biology", "2210": "computer-science", "2281": "economics", "7115": "business-studies"
+      };
+    
+      const seasonNames = {
+       "m": "march",
+       "s": "may-june",
+       "w": "october-november" 
+      };
+    
+    // 2. AUTOMATIC LEVEL DETERMINATION ENGINE
+      let levelFolder = "as-and-a-level"; // Default fallback
+    
+       if (sub.startsWith('0')) {
+         levelFolder = "igcse";
+       } else if (/^[2457]/.test(sub)) {
+        levelFolder = "o-level";
       }
-    },
+    
+      const folderName = subjectNames[sub] || "subject";
+      const seasonWord = seasonNames[seas] || seas;
+      const fullYear = `20${yr}`;
+    
+    // 3. DYNAMIC URL GENERATOR
+    // Note: Change '_ms_' to '_qp_' if you want Question Papers instead of Mark Schemes
+      return `https://xtrapapers.co/papers/caie/${levelFolder}/${folderName}-${sub}/${fullYear}-${seasonWord}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+    }
+  },
     {
       name: "BestExamHelp",
       buildUrl: (sub, yr, seas, pap) => {

@@ -135,7 +135,40 @@
   // ==========================================
   // CENTRALIZABLE FALLBACK PAPERS REGISTRY
   // ==========================================
+  // ==========================================
+  // CENTRALIZABLE FALLBACK PAPERS REGISTRY
+  // ==========================================
   const paperSources = [
+    {
+      name: "XtraPapers",
+      buildUrl: (sub, yr, seas, pap) => {
+        // Maps the subject code to the folder name
+        const subjectNames = {
+          "9709": "mathematics",
+          "9702": "physics",
+          "9701": "chemistry",
+          "9700": "biology",
+          "9618": "computer-science",
+          "9708": "economics",
+          "9706": "accounting",
+          "9609": "business"
+        };
+        
+        // Maps the season letter to the full word used in their folders
+        const seasonNames = {
+          "m": "march",
+          "s": "may-june",
+          "w": "october-november" 
+        };
+        
+        const folderName = subjectNames[sub] || "subject";
+        const seasonWord = seasonNames[seas] || seas;
+        const fullYear = `20${yr}`;
+        
+        // Generates: https://xtrapapers.co/papers/caie/as-and-a-level/physics-9702/2025-march/9702_m25_ms_52.pdf
+        return `https://xtrapapers.co/papers/caie/as-and-a-level/${folderName}-${sub}/${fullYear}-${seasonWord}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+      }
+    },
     {
       name: "BestExamHelp",
       buildUrl: (sub, yr, seas, pap) => {
@@ -149,11 +182,8 @@
           "9706": "accounting",
           "9609": "business"
         };
-        
         const folderName = subjectNames[sub] || "subject";
         const fullYear = `20${yr}`;
-        
-        // Note: Change 'ms' to 'qp' if you want Question Papers instead of Mark Schemes!
         return `https://bestexamhelp.com/exam/cambridge-international-a-level/${folderName}-${sub}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
       }
     },
@@ -164,7 +194,7 @@
       }
     }
   ];
-
+  
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const overlay = document.getElementById('overlay');

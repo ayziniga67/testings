@@ -1,33 +1,33 @@
-# testing
-
-//for adding new sources
-// Drop this right under the PapersDaddy block:
 {
-  name: "ExampleDB",
+  name: "NameOfWebsite",
   buildUrl: (sub, yr, seas, pap) => {
-    const seasonCodes = { "m": "01", "s": "02", "w": "03" };
-    const fullYear = `20${yr}`;
-    const code = seasonCodes[seas] || "01";
-    
-    return `https://example-papers.com/files/${sub}/${fullYear}/term-${code}/paper_${pap}.pdf`;
-  }
-}
-
-//sAME EXAMPLE
-{
-  name: "NumericDatabase",
-  buildUrl: (sub, yr, seas, pap) => {
-    // The right side is changed to numbers because the target website uses numbers in its URLs
-    const seasonCodes = { 
-      "m": "1",  // March becomes session 1
-      "s": "2",  // June becomes session 2
-      "w": "3"   // November becomes session 3
+    // 1. SUBJECT DICTIONARY (Optional)
+    // Use this if the website puts files into folders by name (like /physics/) instead of numbers (like /9702/)
+    const subjectNames = {
+      "9709": "mathematics",
+      "9702": "physics",
+      "9701": "chemistry",
+      "9700": "biology",
+      "9618": "computer-science"
     };
     
-    const fullYear = `20${yr}`;
-    const sessionNum = seasonCodes[seas] || "1";
+    // 2. SEASON DICTIONARY (Optional)
+    // Use this if the website writes out full season names (like /march/) instead of letters (like /m/)
+    const seasonNames = {
+      "m": "march",
+      "s": "may-june", // or "june", "summer", etc.
+      "w": "october-november" // or "november", "winter", etc.
+    };
     
-    // Example output URL: https://numeric-site.com/9702/2026/session-2/paper-21.pdf
-    return `https://numeric-site.com/${sub}/${fullYear}/session-${sessionNum}/paper-${pap}.pdf`;
+    // 3. VARIABLE PREPARATION
+    // Fetch translated values, or fallback to the original code if not found in the dictionary
+    const folderName = subjectNames[sub] || "subject";
+    const seasonWord = seasonNames[seas] || seas;
+    const fullYear = `20${yr}`; // Turns "25" into "2025"
+    
+    // 4. THE URL CONSTRUCTOR
+    // Assemble the parts to match the exact URL structure of the website.
+    // Remember to use backticks ( ` ) and ${variableName} to drop the values in.
+    return `https://example.com/path/to/files/${folderName}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
   }
 }

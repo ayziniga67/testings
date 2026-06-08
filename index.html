@@ -135,73 +135,62 @@
   // ==========================================
   // CENTRALIZABLE FALLBACK PAPERS REGISTRY
   // ==========================================
- 
   const paperSources = [
-   {
-     name: "XtraPapers",
+    {
+      name: "XtraPapers",
       buildUrl: (sub, yr, seas, pap) => {
-       // 1. EXPANDED SUBJECT DICTIONARY (A-Level, IGCSE, & O-Level)
-      const subjectNames = {
-         // A-Levels (9000 series)
-         "9709": "mathematics", "9702": "physics", "9701": "chemistry", "9700": "biology",
-         "9618": "computer-science", "9708": "economics", "9706": "accounting", "9609": "business",
-      
-        // IGCSEs (0000 series)
-         "0580": "mathematics", "0625": "physics", "0620": "chemistry", "0610": "biology",
-         "0478": "computer-science", "0455": "economics", "0452": "accounting", "0985": "accounting",
-         "0450": "business-studies",
-      
-        // O-Levels (7000 / 5000 / 4000 / 2000 series)
-         "7707": "accounting", "4024": "mathematics-d", "5054": "physics", "5070": "chemistry",
-         "5090": "biology", "2210": "computer-science", "2281": "economics", "7115": "business-studies"
-      };
-    
-      const seasonNames = {
-       "m": "march",
-       "s": "may-june",
-       "w": "october-november" 
-      };
-    
-    // 2. AUTOMATIC LEVEL DETERMINATION ENGINE
-      let levelFolder = "as-and-a-level"; // Default fallback
-    
-       if (sub.startsWith('0')) {
-         levelFolder = "igcse";
-       } else if (/^[2457]/.test(sub)) {
-        levelFolder = "o-level";
+        const subjectNames = {
+          "9709": "mathematics", "9702": "physics", "9701": "chemistry", "9700": "biology",
+          "9618": "computer-science", "9708": "economics", "9706": "accounting", "9609": "business",
+          "0580": "mathematics", "0625": "physics", "0620": "chemistry", "0610": "biology",
+          "0478": "computer-science", "0455": "economics", "0452": "accounting", "0985": "accounting",
+          "0450": "business-studies",
+          "7707": "accounting", "4024": "mathematics-d", "5054": "physics", "5070": "chemistry",
+          "5090": "biology", "2210": "computer-science", "2281": "economics", "7115": "business-studies"
+        };
+        const seasonNames = { "m": "march", "s": "may-june", "w": "october-november" };
+        
+        let levelFolder = "as-and-a-level";
+        if (sub.startsWith('0')) { levelFolder = "igcse"; } 
+        else if (/^[2457]/.test(sub)) { levelFolder = "o-level"; }
+        
+        const folderName = subjectNames[sub] || "subject";
+        const seasonWord = seasonNames[seas] || seas;
+        const fullYear = `20${yr}`;
+        
+        // Switched to _qp_ and added /raw suffix to pull down data stream natively
+        return `https://xtrapapers.co/papers/caie/${levelFolder}/${folderName}-${sub}/${fullYear}-${seasonWord}/${sub}_${seas}${yr}_qp_${pap}.pdf/raw`;
       }
-    
-      const folderName = subjectNames[sub] || "subject";
-      const seasonWord = seasonNames[seas] || seas;
-      const fullYear = `20${yr}`;
-    
-    // 3. DYNAMIC URL GENERATOR
-    // Note: Change '_ms_' to '_qp_' if you want Question Papers instead of Mark Schemes
-      return `https://xtrapapers.co/papers/caie/${levelFolder}/${folderName}-${sub}/${fullYear}-${seasonWord}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
-    }
-  },
+    },
     {
       name: "BestExamHelp",
       buildUrl: (sub, yr, seas, pap) => {
         const subjectNames = {
-          "9709": "mathematics",
-          "9702": "physics",
-          "9701": "chemistry",
-          "9700": "biology",
-          "9618": "computer-science",
-          "9708": "economics",
-          "9706": "accounting",
-          "9609": "business"
+          "9709": "mathematics", "9702": "physics", "9701": "chemistry", "9700": "biology",
+          "9618": "computer-science", "9708": "economics", "9706": "accounting", "9609": "business",
+          "0580": "mathematics", "0625": "physics", "0620": "chemistry", "0610": "biology",
+          "0478": "computer-science", "0455": "economics", "0452": "accounting", "0985": "accounting",
+          "0450": "business-studies",
+          "7707": "accounting", "4024": "mathematics-d", "5054": "physics", "5070": "chemistry",
+          "5090": "biology", "2210": "computer-science", "2281": "economics", "7115": "business-studies"
         };
+        
+        let levelFolder = "cambridge-international-a-level";
+        if (sub.startsWith('0')) { levelFolder = "cambridge-igcse"; } 
+        else if (/^[2457]/.test(sub)) { levelFolder = "cambridge-o-level"; }
+
         const folderName = subjectNames[sub] || "subject";
         const fullYear = `20${yr}`;
-        return `https://bestexamhelp.com/exam/cambridge-international-a-level/${folderName}-${sub}/${fullYear}/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+        
+        // Switched from _ms_ to _qp_
+        return `https://bestexamhelp.com/exam/${levelFolder}/${folderName}-${sub}/${fullYear}/${sub}_${seas}${yr}_qp_${pap}.pdf`;
       }
     },
     {
       name: "PapaCambridge",
       buildUrl: (sub, yr, seas, pap) => {
-        return `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_ms_${pap}.pdf`;
+        // Switched from _ms_ to _qp_
+        return `https://pastpapers.papacambridge.com/directories/CAIE/CAIE-pastpapers/upload/${sub}_${seas}${yr}_qp_${pap}.pdf`;
       }
     }
   ];
@@ -212,7 +201,7 @@
   const prog = document.getElementById('progress-fill');
   
   let ocrWorker = null;
-  let currentPdf = null; // KEEP THIS LET HERE
+  let currentPdf = null;
   let scrollObserver = null;
 
   async function setupOCR() {
@@ -340,6 +329,7 @@
     await runNativeRenderPipeline();
   }
 
+  // FIXED: Patched array buffer stream extractor to bypass proxy range-request blocks
   async function fetchPDFResilient(targetUrl) {
     const proxies = [
       `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
@@ -350,11 +340,15 @@
     let lastError = null;
     for (let i = 0; i < proxies.length; i++) {
       try {
-        const task = pdfjsLib.getDocument(proxies[i]);
+        const response = await fetch(proxies[i]);
+        if (!response.ok) throw new Error(`HTTP status code error: ${response.status}`);
+        
+        const buffer = await response.arrayBuffer();
+        const task = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
         const pdf = await task.promise;
         return pdf;
       } catch (e) {
-        console.warn(`Proxy node ${i + 1} bypassed.`);
+        console.warn(`Proxy node ${i + 1} bypassed:`, e);
         lastError = e;
       }
     }
@@ -368,14 +362,14 @@
     const pap = document.getElementById('pap-input').value.trim();
     const targetQ = document.getElementById('q-input').value.trim() || "1";
 
-    // CLIENT-SIDE INPUT VALIDATION ENGINE
+    // CLIENT-SIDE INPUT VALIDATION ENGINE (Allows leading zeros for IGCSE papers)
     if (!/^\d{4}$/.test(sub)) {
-      alert("Validation Error:\nSubject must be exactly 4 numeric digits (e.g., 9702).");
+      alert("Validation Error:\nSubject must be exactly 4 numeric digits (e.g., 0580 or 9702).");
       overlay.style.display = 'none';
       return;
     }
     if (!/^\d{2}$/.test(yr)) {
-      alert("Validation Error:\nYear must be exactly 2 numeric digits (e.g., 23).");
+      alert("Validation Error:\nYear must be exactly 2 numeric digits (e.g., 25).");
       overlay.style.display = 'none';
       return;
     }
@@ -385,7 +379,7 @@
       return;
     }
     if (!/^\d{2}$/.test(pap)) {
-      alert("Validation Error:\nPaper must be exactly 2 numeric digits (e.g., 21).");
+      alert("Validation Error:\nPaper must be exactly 2 numeric digits (e.g., 12).");
       overlay.style.display = 'none';
       return;
     }
@@ -424,7 +418,7 @@
     }, 10000);
     
     // CASCADING MULTI-SOURCE ACQUISITION SYSTEM
-    currentPdf = null; // BUG FIXED: REMOVED "let"
+    currentPdf = null; 
     let successfulUrl = "";
 
     for (let i = 0; i < paperSources.length; i++) {
@@ -435,7 +429,7 @@
       try {
         currentPdf = await fetchPDFResilient(generatedUrl);
         successfulUrl = generatedUrl;
-        break; // Successfully loaded a stream! Break from loop immediately.
+        break; 
       } catch (e) {
         console.warn(`Fallback: ${source.name} failed. Advancing network pointer...`);
       }
@@ -450,13 +444,13 @@
     }
 
     try {
-      let matchedPage = 2; 
+      let matchedPage = 1; // Fallback to page 1 if dynamic logic matches nothing
       let foundMatch = false;
 
       // ========================================================
       // STEP 1: SEQUENCE COLUMN EXTRACTION ENGINE
       // ========================================================
-      for (let i = 2; i <= currentPdf.numPages; i++) {
+      for (let i = 1; i <= currentPdf.numPages; i++) {
         if (foundMatch) break;
         const page = await currentPdf.getPage(i);
         const content = await page.getTextContent();
@@ -465,7 +459,7 @@
           .filter(item => item && typeof item.str === 'string')
           .map(item => item.str)
           .join(' ')
-          .toUpperCase(); // Left uppercase to ensure font styling doesn't break scanner
+          .toUpperCase(); 
         
         // Hard bypass for instruction / rubric / metadata pages
         if (fullPageText.includes("ANNOTATION") || 
@@ -488,7 +482,6 @@
           const rawStr = item.str.trim().toUpperCase();
           if (!rawStr) continue;
           
-          // STRICT EXCLUSION SHIELD: Ignore columns containing rubric/header artifacts
           if (/PAGE|MARK|TOTAL|SUBJECT|COMMENT|CAMBRIDGE|PRINCIPLE|GUIDELINE/i.test(rawStr)) {
             continue;
           }
